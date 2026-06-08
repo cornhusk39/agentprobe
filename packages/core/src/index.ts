@@ -10,3 +10,6 @@ export * from "./adapters/http.js";
 export * from "./adapters/replay.js";
 export * from "./assertions.js";
 export * from "./suite.js";
+export * from "./judge.js";
+export * from "./store.js";
+export * from "./runner.js";
