@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "caseId": "lists-availability",
+  "agent": "home-service-booking",
+  "recordedAt": "2026-06-08T17:43:39.376Z",
+  "input": {
+    "intent": "availability",
+    "day": "tuesday"
+  },
+  "result": {
+    "output": {
+      "status": "info",
+      "message": "Open slots on tuesday: tue-9am, tue-1pm, tue-4pm.",
+      "slots": [
+        "tue-9am",
+        "tue-1pm",
+        "tue-4pm"
+      ]
+    },
+    "trace": [
+      {
+        "type": "message",
+        "role": "user",
+        "content": "{\"intent\":\"availability\",\"day\":\"tuesday\"}"
+      },
+      {
+        "type": "tool_call",
+        "call": {
+          "name": "check_availability",
+          "args": {
+            "day": "tuesday"
+          },
+          "result": {
+            "slots": [
+              "tue-9am",
+              "tue-1pm",
+              "tue-4pm"
+            ]
+          }
+        }
+      },
+      {
+        "type": "message",
+        "role": "assistant",
+        "content": "Open slots on tuesday: tue-9am, tue-1pm, tue-4pm."
+      }
+    ],
+    "metrics": {
+      "latencyMs": 340,
+      "costUsd": 0.0055,
+      "steps": 3,
+      "inputTokens": 160,
+      "outputTokens": 90
+    }
+  },
+  "redaction": {
+    "hits": []
+  }
+}

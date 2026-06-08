@@ -1,0 +1,24 @@
+{
+  "name": "@agentprobe/example-reference-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A clean-room home-service booking agent with mock tools, used as the public demo. Runs entirely offline on seeded cassettes.",
+  "type": "module",
+  "scripts": {
+    "record": "tsx ../../packages/cli/src/index.ts record --config ./agentprobe.config.ts",
+    "baseline": "tsx ../../packages/cli/src/index.ts baseline --config ./agentprobe.config.ts",
+    "check": "tsx ../../packages/cli/src/index.ts check --config ./agentprobe.config.ts",
+    "replay": "tsx ../../packages/cli/src/index.ts replay --config ./agentprobe.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agentprobe/core": "workspace:*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@agentprobe/cli": "workspace:*",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

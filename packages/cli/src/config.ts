@@ -1,0 +1,32 @@
+// The config contract a project provides to the CLI. A project's
+// agentprobe.config.ts default-exports one of these. It declares the suite, the
+// paths for cassettes, the judge cache, the baseline, and the database, and (for
+// record mode) how to build a live agent and which judge to use.
+
+import type { Agent, Case, Judge, RegressionThresholds, Suite } from "@agentprobe/core";
+
+export interface AgentProbeConfig {
+  suite: Suite;
+  // Directory holding the recorded cassettes, one per case. Committed.
+  cassetteDir: string;
+  // Committed JSON of cached judge verdicts, so replay and CI need no API key.
+  judgeCacheFile: string;
+  // Committed baseline snapshot the CI gate diffs against.
+  baselineFile: string;
+  // Local SQLite database for run history and the dashboard. Not committed.
+  dbPath: string;
+  // Builds the live agent for a case in record mode. Omitted projects can only
+  // replay (for example a demo that ships cassettes and never records).
+  liveAgent?: (c: Case) => Agent;
+  // The judge used while recording. Defaults to the Anthropic judge; a demo can
+  // supply a deterministic judge so seeding needs no key.
+  recordJudge?: Judge;
+  // Optional per-project regression thresholds; falls back to the defaults.
+  thresholds?: Partial<RegressionThresholds>;
+}
+
+// Identity helper that exists purely for editor types and a stable import the
+// config files can depend on.
+export function defineConfig(config: AgentProbeConfig): AgentProbeConfig {
+  return config;
+}

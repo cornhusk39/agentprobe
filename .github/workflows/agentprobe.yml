@@ -1,0 +1,40 @@
+# The headline feature as CI. On every push and pull request, replay the
+# recorded cassettes and fail the build if the run regresses against the
+# committed baseline. This runs entirely offline: replay needs no network, and
+# the judge reads cached verdicts, so no API key is ever required here.
+name: agentprobe
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  regression-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build engine and CLI
+        run: pnpm --filter @agentprobe/core --filter @agentprobe/cli build
+
+      - name: Unit tests
+        run: pnpm test
+
+      # The gate. `check` replays the cassettes, scores them with assertions and
+      # the cached judge, diffs against baseline.json, and exits non-zero on a
+      # regression, which fails the job.
+      - name: Regression gate (reference agent)
+        run: pnpm --filter @agentprobe/example-reference-agent check

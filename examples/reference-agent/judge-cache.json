@@ -1,0 +1,38 @@
+{
+  "42208868716d20d6b723f2beba239d92": {
+    "score": 0.92,
+    "pass": true,
+    "rationale": "Completed the booking and returned a confirmation reference.",
+    "model": "scripted"
+  },
+  "340f3aaa90eb5def823fe073948264cf": {
+    "score": 0.85,
+    "pass": true,
+    "rationale": "Declined gracefully and pointed to the next available day.",
+    "model": "scripted"
+  },
+  "e6df443300d6e8e9f39d10a3c280dacb": {
+    "score": 0.88,
+    "pass": true,
+    "rationale": "Answered the query with the requested details.",
+    "model": "scripted"
+  },
+  "6300a430b18a00b689a19c5b44bbca31": {
+    "score": 0.88,
+    "pass": true,
+    "rationale": "Answered the query with the requested details.",
+    "model": "scripted"
+  },
+  "5ad310c092fc52530237f42dd04ece16": {
+    "score": 0.45,
+    "pass": false,
+    "rationale": "Did not complete the task or provide the requested information.",
+    "model": "scripted"
+  },
+  "715b578ddda29bd699d0e60e4615b48d": {
+    "score": 0.45,
+    "pass": false,
+    "rationale": "Did not complete the task or provide the requested information.",
+    "model": "scripted"
+  }
+}

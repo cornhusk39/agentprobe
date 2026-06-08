@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "caseId": "reports-property-history",
+  "agent": "home-service-booking",
+  "recordedAt": "2026-06-08T17:43:39.377Z",
+  "input": {
+    "intent": "property",
+    "address": "12 Oak St"
+  },
+  "result": {
+    "output": {
+      "status": "info",
+      "message": "12 oak st is a single-family home; last serviced 2026-02-11.",
+      "property": {
+        "type": "single-family home",
+        "lastService": "2026-02-11"
+      }
+    },
+    "trace": [
+      {
+        "type": "message",
+        "role": "user",
+        "content": "{\"intent\":\"property\",\"address\":\"12 Oak St\"}"
+      },
+      {
+        "type": "tool_call",
+        "call": {
+          "name": "lookup_property",
+          "args": {
+            "address": "12 oak st"
+          },
+          "result": {
+            "id": "P-100",
+            "type": "single-family home",
+            "lastService": "2026-02-11"
+          }
+        }
+      },
+      {
+        "type": "message",
+        "role": "assistant",
+        "content": "12 oak st is a single-family home; last serviced 2026-02-11."
+      }
+    ],
+    "metrics": {
+      "latencyMs": 340,
+      "costUsd": 0.0055,
+      "steps": 3,
+      "inputTokens": 160,
+      "outputTokens": 90
+    }
+  },
+  "redaction": {
+    "hits": []
+  }
+}

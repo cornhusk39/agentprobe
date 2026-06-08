@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "caseId": "declines-when-no-availability",
+  "agent": "home-service-booking",
+  "recordedAt": "2026-06-08T17:43:39.376Z",
+  "input": {
+    "intent": "book",
+    "day": "wednesday",
+    "service": "hvac",
+    "customer": {
+      "name": "Sam Lee",
+      "phone": "[REDACTED:us-phone]"
+    }
+  },
+  "result": {
+    "output": {
+      "status": "unavailable",
+      "message": "No openings on wednesday. The soonest is monday."
+    },
+    "trace": [
+      {
+        "type": "message",
+        "role": "user",
+        "content": "{\"intent\":\"book\",\"day\":\"wednesday\",\"service\":\"hvac\",\"customer\":{\"name\":\"Sam Lee\",\"phone\":\"[REDACTED:us-phone]\"}}"
+      },
+      {
+        "type": "tool_call",
+        "call": {
+          "name": "crm_upsert_customer",
+          "args": {
+            "name": "Sam Lee",
+            "phone": "[REDACTED:us-phone]"
+          },
+          "result": {
+            "customerId": "C-501"
+          }
+        }
+      },
+      {
+        "type": "tool_call",
+        "call": {
+          "name": "check_availability",
+          "args": {
+            "day": "wednesday"
+          },
+          "result": {
+            "slots": []
+          }
+        }
+      },
+      {
+        "type": "message",
+        "role": "assistant",
+        "content": "No openings on wednesday. The soonest is monday."
+      }
+    ],
+    "metrics": {
+      "latencyMs": 500,
+      "costUsd": 0.009,
+      "steps": 4,
+      "inputTokens": 200,
+      "outputTokens": 120
+    }
+  },
+  "redaction": {
+    "hits": [
+      {
+        "rule": "us-phone",
+        "path": "customer.phone"
+      },
+      {
+        "rule": "us-phone",
+        "path": "trace[0].content"
+      },
+      {
+        "rule": "us-phone",
+        "path": "trace[1].call.args.phone"
+      }
+    ]
+  }
+}

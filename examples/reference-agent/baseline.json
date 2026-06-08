@@ -1,0 +1,44 @@
+{
+  "suite": "home-service-booking",
+  "runUid": "home-service-booking-1780940596615",
+  "createdAt": "2026-06-08T17:43:16.615Z",
+  "cases": [
+    {
+      "caseId": "books-available-slot",
+      "passed": true,
+      "judgeScore": 0.92,
+      "costUsd": 0.0125,
+      "latencyMs": 660,
+      "steps": 5
+    },
+    {
+      "caseId": "declines-when-no-availability",
+      "passed": true,
+      "judgeScore": 0.85,
+      "costUsd": 0.009,
+      "latencyMs": 500,
+      "steps": 4
+    },
+    {
+      "caseId": "lists-availability",
+      "passed": true,
+      "judgeScore": 0.88,
+      "costUsd": 0.0055,
+      "latencyMs": 340,
+      "steps": 3
+    },
+    {
+      "caseId": "reports-property-history",
+      "passed": true,
+      "judgeScore": 0.88,
+      "costUsd": 0.0055,
+      "latencyMs": 340,
+      "steps": 3
+    }
+  ],
+  "casesPassed": 4,
+  "casesTotal": 4,
+  "totalCostUsd": 0.032499999999999994,
+  "totalLatencyMs": 1840,
+  "avgJudgeScore": 0.8825
+}

@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "caseId": "books-available-slot",
+  "agent": "home-service-booking",
+  "recordedAt": "2026-06-08T17:43:39.374Z",
+  "input": {
+    "intent": "book",
+    "day": "tuesday",
+    "service": "plumbing",
+    "customer": {
+      "name": "Pat Rivera",
+      "phone": "[REDACTED:us-phone]"
+    }
+  },
+  "result": {
+    "output": {
+      "status": "booked",
+      "message": "Booked plumbing for tue-9am. Confirmation BK-1642.",
+      "confirmationId": "BK-1642"
+    },
+    "trace": [
+      {
+        "type": "message",
+        "role": "user",
+        "content": "{\"intent\":\"book\",\"day\":\"tuesday\",\"service\":\"plumbing\",\"customer\":{\"name\":\"Pat Rivera\",\"phone\":\"[REDACTED:us-phone]\"}}"
+      },
+      {
+        "type": "tool_call",
+        "call": {
+          "name": "crm_upsert_customer",
+          "args": {
+            "name": "Pat Rivera",
+            "phone": "[REDACTED:us-phone]"
+          },
+          "result": {
+            "customerId": "C-501"
+          }
+        }
+      },
+      {
+        "type": "tool_call",
+        "call": {
+          "name": "check_availability",
+          "args": {
+            "day": "tuesday"
+          },
+          "result": {
+            "slots": [
+              "tue-9am",
+              "tue-1pm",
+              "tue-4pm"
+            ]
+          }
+        }
+      },
+      {
+        "type": "tool_call",
+        "call": {
+          "name": "create_booking",
+          "args": {
+            "slot": "tue-9am",
+            "service": "plumbing"
+          },
+          "result": {
+            "confirmationId": "BK-1642"
+          }
+        }
+      },
+      {
+        "type": "message",
+        "role": "assistant",
+        "content": "Booked plumbing for tue-9am. Confirmation BK-1642."
+      }
+    ],
+    "metrics": {
+      "latencyMs": 660,
+      "costUsd": 0.0125,
+      "steps": 5,
+      "inputTokens": 240,
+      "outputTokens": 150
+    }
+  },
+  "redaction": {
+    "hits": [
+      {
+        "rule": "us-phone",
+        "path": "customer.phone"
+      },
+      {
+        "rule": "us-phone",
+        "path": "trace[0].content"
+      },
+      {
+        "rule": "us-phone",
+        "path": "trace[1].call.args.phone"
+      }
+    ]
+  }
+}
