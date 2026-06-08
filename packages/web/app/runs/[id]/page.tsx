@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getRun, runsChronological } from "../../../lib/data";
+import { getRun } from "../../../lib/db";
 import { TraceView } from "../../../components/TraceView";
+import { BaselineButton } from "../../../components/BaselineButton";
 import type { CaseClassification, SeedCase } from "../../../lib/types";
 
-// Pre-render every run page at build time, so the demo is fully static.
-export function generateStaticParams() {
-  return runsChronological().map((r) => ({ id: String(r.id) }));
-}
+// Server-rendered per request against the live database.
+export const dynamic = "force-dynamic";
 
 function classPill(c: CaseClassification | undefined) {
   if (!c || c === "pass") return null;
@@ -85,9 +84,16 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
       <p className="back">
         <Link href="/">&larr; all runs</Link>
       </p>
-      <h2 style={{ marginTop: 8 }}>
-        Run #{run.id} &middot; {run.runUid}
-      </h2>
+      <div className="toolbar">
+        <h2 style={{ marginTop: 8 }}>
+          Run #{run.id} &middot; {run.runUid}
+        </h2>
+        {run.isBaseline ? (
+          <span className="pill muted">current baseline</span>
+        ) : (
+          <BaselineButton runId={run.id} />
+        )}
+      </div>
       <div className="kv">
         <span>
           mode <b>{run.mode}</b>

@@ -24,8 +24,3 @@ export type SeedRun = RunReport & {
   // Absent on the baseline run itself; present on every run compared to it.
   regression?: RunRegression;
 };
-
-export interface SeedFile {
-  suite: string;
-  runs: SeedRun[];
-}

@@ -72,15 +72,17 @@ When the regression is in, `check` prints the cause: `tool-called create_booking
 tool "create_booking" was never called`, and the judge score drops below its
 threshold. Two independent signals agree the agent stopped doing its job.
 
-## Level 4: the dashboard (no key, static)
+## Level 4: the interactive dashboard (no key)
 
 ```sh
-pnpm --filter @agentprobe/web dev     # http://localhost:3000
+pnpm --filter @agentprobe/web seed:db    # seed the local database with run history
+pnpm --filter @agentprobe/web dev        # http://localhost:3000
 ```
 
-The dashboard reads a committed seed generated from the cassettes, so it renders
-runs, traces, and trend charts with no database and no key. Regenerate the seed
-with `pnpm --filter @agentprobe/web seed`.
+The dashboard reads and writes the same SQLite database the CLI uses. "Run suite
+now" replays the cassettes and records a new run; "Set as baseline" promotes a
+run. Both are key-free (they replay cassettes and read cached judge verdicts).
+It renders runs, traces, and trend charts from the live database.
 
 ## The real-API path (the one place a key is used)
 

@@ -168,10 +168,16 @@ pnpm replay       # replay offline and print the run summary
 pnpm baseline     # save the current run as the committed baseline
 pnpm check        # replay, diff against the baseline, exit non-zero on regression
 
-# the dashboard:
-pnpm --filter @agentprobe/web seed   # regenerate the seeded run history
-pnpm --filter @agentprobe/web dev    # run the dashboard locally
+# the dashboard (interactive: runs and baselines can be driven from the browser):
+pnpm --filter @agentprobe/web seed:db   # seed the local database with run history
+pnpm --filter @agentprobe/web dev       # run the dashboard locally
 ```
+
+The dashboard is interactive. "Run suite now" replays the cassettes and records
+a new run; "Set as baseline" promotes a run to the suite's baseline. Both read
+and write the same SQLite database the CLI uses, so it runs as a Node server
+rather than a static export. Replay and baseline need no key; only `record`
+(against your live agent) does.
 
 ## CI
 

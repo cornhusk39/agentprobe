@@ -10,7 +10,7 @@
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "next lint",
-    "seed": "tsx scripts/generate-seed.ts"
+    "seed:db": "tsx scripts/seed-db.ts"
   },
   "dependencies": {
     "@agentprobe/core": "workspace:*",

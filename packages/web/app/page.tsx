@@ -1,6 +1,11 @@
 import Link from "next/link";
-import { listRuns, getBaseline, trendSeries } from "../lib/data";
+import { listRuns, getBaseline, trendSeries } from "../lib/db";
 import { LineChart } from "../components/LineChart";
+import { RunControls } from "../components/RunControls";
+
+// Reads the live database per request so a run triggered from the browser shows
+// up immediately.
+export const dynamic = "force-dynamic";
 
 function day(iso: string): string {
   return iso.slice(0, 10);
@@ -13,6 +18,8 @@ export default function HomePage() {
 
   return (
     <>
+      <RunControls />
+
       <h2>Trends</h2>
       <div className="grid-charts">
         <LineChart

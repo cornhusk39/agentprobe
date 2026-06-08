@@ -21,7 +21,10 @@ export default defineConfig({
   cassetteDir: path.join(here, "cassettes"),
   judgeCacheFile: path.join(here, "judge-cache.json"),
   baselineFile: path.join(here, "baseline.json"),
-  dbPath: path.join(here, "data", "agentprobe.db"),
+  // The database path can be overridden so the dashboard and the CLI can share
+  // one database: a run triggered from the browser lands where the dashboard
+  // reads. Defaults to a local file next to the example.
+  dbPath: process.env.AGENTPROBE_DB_PATH ?? path.join(here, "data", "agentprobe.db"),
   liveAgent: () => (useRegressed ? regressedAgent : referenceAgent),
   recordJudge: demoJudge,
 });

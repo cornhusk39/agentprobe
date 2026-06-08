@@ -1,6 +1,6 @@
 import "./globals.css";
 import type { ReactNode } from "react";
-import { suiteName } from "../lib/data";
+import { suiteName } from "../lib/db";
 
 export const metadata = {
   title: "AgentProbe",
