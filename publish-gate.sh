@@ -86,6 +86,23 @@ else
   bad "tests failed (see /tmp/agentprobe-gate-test.log)"
 fi
 
+section "Build (engine, CLI, and dashboard)"
+if pnpm build >/tmp/agentprobe-gate-build.log 2>&1; then
+  ok "build (includes the Next.js demo, proving it compiles for the hosted demo)"
+else
+  bad "build failed (see /tmp/agentprobe-gate-build.log)"
+fi
+
+section "Regression gate (reference agent)"
+# Run the headline feature against itself: replay the committed cassettes and
+# diff against the baseline. The committed state must be green; if the gate is
+# red here, the baseline and the cassettes have drifted out of agreement.
+if pnpm --filter @agentprobe/example-reference-agent check >/tmp/agentprobe-gate-check.log 2>&1; then
+  ok "reference agent replays clean against its baseline"
+else
+  bad "reference agent regression gate failed (see /tmp/agentprobe-gate-check.log)"
+fi
+
 section "Result"
 if [ "$fail" -eq 0 ]; then
   echo "publish-gate: PASS"
