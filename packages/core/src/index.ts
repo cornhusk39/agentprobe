@@ -3,3 +3,7 @@
 
 export * from "./types.js";
 export * from "./agent.js";
+export * from "./redaction.js";
+export * from "./cassette.js";
+export * from "./recorder.js";
+export * from "./adapters/http.js";
