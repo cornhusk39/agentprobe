@@ -173,11 +173,23 @@ pnpm --filter @agentprobe/web seed:db   # seed the local database with run histo
 pnpm --filter @agentprobe/web dev       # run the dashboard locally
 ```
 
-The dashboard is interactive. "Run suite now" replays the cassettes and records
-a new run; "Set as baseline" promotes a run to the suite's baseline. Both read
-and write the same SQLite database the CLI uses, so it runs as a Node server
-rather than a static export. Replay and baseline need no key; only `record`
-(against your live agent) does.
+The dashboard is interactive and has three areas:
+
+- **Runs**: the run list, trend charts, and a run detail with the full trace and
+  tool-call view. "Run suite now" replays the cassettes and records a new run;
+  "Set as baseline" promotes a run.
+- **Suite**: author cases in the browser. Edit a case as validated JSON (its
+  input, assertions, and rubric), add or delete cases, then run the suite to see
+  pass or fail change immediately. Authored assertions are the serializable
+  kinds (tool-called, tool-args, output-field, latency/cost/step budgets); the
+  Zod `output-schema` assertion stays in code-defined TS suites.
+- **Compare**: diff any two runs side by side, with per-case classification
+  (pass, regress, improve) and color-coded judge, cost, and latency deltas.
+
+It reads and writes the same SQLite database the CLI uses, so it runs as a Node
+server rather than a static export. Replay, baseline, authoring, and compare all
+need no key; only `record` (against your live agent) does. Seed a local database
+with `pnpm --filter @agentprobe/web seed:db`.
 
 ## CI
 

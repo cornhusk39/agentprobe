@@ -120,6 +120,12 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
         <div className="banner pass">No regressions against the baseline.</div>
       )}
 
+      {run.isBaseline ? null : (
+        <p className="back">
+          <Link href={`/compare?candidate=${run.id}`}>Compare this run to the baseline &rarr;</Link>
+        </p>
+      )}
+
       <h2>Cases</h2>
       {run.cases.map((c) => (
         <CaseBlock key={c.caseId} c={c} classification={run.regression?.caseClassifications[c.caseId]} />

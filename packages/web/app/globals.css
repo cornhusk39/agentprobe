@@ -361,3 +361,13 @@ nav.top a:hover {
   gap: 8px;
   align-items: center;
 }
+
+select.select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 13px;
+  margin-left: 4px;
+}

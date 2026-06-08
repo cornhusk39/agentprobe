@@ -13,6 +13,7 @@ import {
   Store,
   snapshotFromReport,
   diffRuns,
+  type RegressionReport,
   type StoredCaseResult,
   type StoredRun,
 } from "@agentprobe/core";
@@ -126,6 +127,38 @@ export function getRun(id: number): SeedRun | undefined {
   const run = db().getRun(id);
   if (!run) return undefined;
   return withRegression(hydrate(run), getBaseline());
+}
+
+export interface RunRef {
+  id: number;
+  runUid: string;
+  createdAt: string;
+  isBaseline: boolean;
+  casesPassed: number;
+  casesTotal: number;
+}
+
+// Lightweight list for the compare pickers, newest first.
+export function runRefs(): RunRef[] {
+  return db()
+    .listRuns(activeSuite())
+    .map((r) => ({
+      id: r.id,
+      runUid: r.runUid,
+      createdAt: r.createdAt,
+      isBaseline: r.isBaseline,
+      casesPassed: r.casesPassed,
+      casesTotal: r.casesTotal,
+    }));
+}
+
+// Diff any two runs against each other, base versus candidate. Returns null if
+// either run is missing. This is what the interactive compare view renders.
+export function compareRuns(baseId: number, candidateId: number): RegressionReport | null {
+  const base = getRun(baseId);
+  const candidate = getRun(candidateId);
+  if (!base || !candidate) return null;
+  return diffRuns(snapshotFromReport(base), snapshotFromReport(candidate));
 }
 
 export interface TrendSeries {
