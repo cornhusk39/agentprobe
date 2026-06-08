@@ -25,8 +25,18 @@ export const assertionSchema = z.discriminatedUnion("kind", [
     args: z.record(z.unknown()),
     match: z.enum(["subset", "exact"]).default("subset"),
   }),
-  // The agent's output parses against the given schema.
+  // The agent's output parses against the given schema. This one holds a live
+  // Zod schema, so it is for code-defined TS suites only; it does not serialize.
   z.object({ kind: z.literal("output-schema"), schema: zodSchema }),
+  // A single field of the output exists, or equals a value. Fully serializable,
+  // so it can be authored in the dashboard. `path` is a dot path into the output
+  // (for example "status" or "property.type").
+  z.object({
+    kind: z.literal("output-field"),
+    path: z.string().min(1),
+    op: z.enum(["exists", "equals"]).default("exists"),
+    value: z.unknown().optional(),
+  }),
   // Each metric stays under its budget. These are what regression detection
   // later diffs across runs.
   z.object({ kind: z.literal("latency-budget"), maxMs: z.number().positive() }),
@@ -62,6 +72,21 @@ function canonical(value: unknown): string {
     return v;
   };
   return JSON.stringify(norm(value));
+}
+
+// Resolve a dot path into a value tree, returning a marker when the path does
+// not exist so that a stored undefined can be told apart from a missing field.
+const MISSING = Symbol("missing");
+function getByPath(root: unknown, path: string): unknown | typeof MISSING {
+  let node: unknown = root;
+  for (const key of path.split(".")) {
+    if (node && typeof node === "object" && key in (node as Record<string, unknown>)) {
+      node = (node as Record<string, unknown>)[key];
+    } else {
+      return MISSING;
+    }
+  }
+  return node;
 }
 
 function argsMatch(call: ToolCall, expected: Record<string, unknown>, mode: "subset" | "exact"): boolean {
@@ -110,6 +135,32 @@ function evaluateOne(result: AgentRunResult, assertion: Assertion): AssertionRes
         message: parsed.success
           ? "output matched the schema"
           : `output did not match the schema: ${parsed.error.issues.map((i) => i.message).join("; ")}`,
+      };
+    }
+    case "output-field": {
+      const found = getByPath(result.output, assertion.path);
+      const exists = found !== MISSING;
+      if (assertion.op === "exists") {
+        return {
+          kind: assertion.kind,
+          label: assertion.path,
+          pass: exists,
+          message: exists
+            ? `output field "${assertion.path}" is present`
+            : `output field "${assertion.path}" is missing`,
+        };
+      }
+      // equals
+      const pass = exists && canonical(found) === canonical(assertion.value);
+      return {
+        kind: assertion.kind,
+        label: assertion.path,
+        pass,
+        message: pass
+          ? `output field "${assertion.path}" equals the expected value`
+          : exists
+            ? `output field "${assertion.path}" did not equal the expected value`
+            : `output field "${assertion.path}" is missing, so it cannot equal the expected value`,
       };
     }
     case "latency-budget": {

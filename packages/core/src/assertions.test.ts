@@ -66,4 +66,22 @@ describe("deterministic assertions", () => {
     ]);
     expect(r!.pass).toBe(false);
   });
+
+  it("output-field checks existence and equality on a dot path", () => {
+    const exists = evaluateAssertions(result, [{ kind: "output-field", path: "confirmationId", op: "exists" }]);
+    expect(exists[0]!.pass).toBe(true);
+
+    const missing = evaluateAssertions(result, [{ kind: "output-field", path: "nope", op: "exists" }]);
+    expect(missing[0]!.pass).toBe(false);
+
+    const equals = evaluateAssertions(result, [
+      { kind: "output-field", path: "confirmationId", op: "equals", value: "BK-123" },
+    ]);
+    expect(equals[0]!.pass).toBe(true);
+
+    const wrongValue = evaluateAssertions(result, [
+      { kind: "output-field", path: "confirmationId", op: "equals", value: "BK-999" },
+    ]);
+    expect(wrongValue[0]!.pass).toBe(false);
+  });
 });

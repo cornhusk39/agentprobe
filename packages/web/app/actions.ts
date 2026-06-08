@@ -1,51 +1,31 @@
 "use server";
 
 // Server actions that make the dashboard interactive. Running the suite goes
-// through the real CLI as a child process: it reuses the exact, tested
-// orchestration and keeps the engine's work off the request thread, writing to
-// the same database the dashboard reads (shared via AGENTPROBE_DB_PATH). Marking
-// a baseline is a direct database write, since it needs no suite or cassettes.
+// through the engine in process (it materializes the authored suite from the
+// database, replays the cassettes, and persists a run). Editing and deleting
+// cases write through the suite store. Marking a baseline is a direct write.
 
-import { execFile } from "node:child_process";
-import path from "node:path";
-import { promisify } from "node:util";
 import { revalidatePath } from "next/cache";
-import { dbPath, markBaselineById } from "../lib/db";
-
-const run = promisify(execFile);
-
-// The repo root, two levels up from this package's working directory, so the
-// pnpm filter resolves the reference agent.
-function repoRoot(): string {
-  return path.resolve(process.cwd(), "..", "..");
-}
+import { redirect } from "next/navigation";
+import { markBaselineById } from "../lib/db";
+import { runActiveSuite } from "../lib/engine";
+import { saveCaseFromJson, deleteCase } from "../lib/suite";
 
 export interface ActionResult {
   ok: boolean;
   message: string;
 }
 
-// Replay the reference suite. This persists a new run to the shared database,
-// which then appears in the dashboard with its regression verdict computed
-// against the baseline.
+// Run the authored suite. Persists a new run that then appears in the dashboard
+// with its regression verdict computed against the baseline.
 export async function runSuiteAction(): Promise<ActionResult> {
-  const env = { ...process.env, AGENTPROBE_DB_PATH: dbPath() };
   try {
-    const { stdout } = await run(
-      "pnpm",
-      ["--filter", "@agentprobe/example-reference-agent", "replay"],
-      { cwd: repoRoot(), env, timeout: 60_000 },
-    );
+    const { runId, passed, total } = await runActiveSuite();
     revalidatePath("/");
-    const summary = stdout.split("\n").filter((l) => l.includes("cases passed")).pop() ?? "run complete";
-    return { ok: true, message: summary.trim() };
+    revalidatePath("/suite");
+    return { ok: passed === total, message: `run #${runId}: ${passed}/${total} cases passed` };
   } catch (err) {
-    // A non-zero exit means cases failed, which is a valid outcome to show, not a
-    // crash. Surface whatever the CLI printed.
-    const e = err as { stdout?: string; message?: string };
-    revalidatePath("/");
-    const summary = (e.stdout ?? "").split("\n").filter((l) => l.includes("cases passed")).pop();
-    return { ok: false, message: summary?.trim() ?? e.message ?? "run failed" };
+    return { ok: false, message: (err as Error).message };
   }
 }
 
@@ -55,5 +35,27 @@ export async function setBaselineAction(formData: FormData): Promise<void> {
     markBaselineById(id);
     revalidatePath("/");
     revalidatePath(`/runs/${id}`);
+  }
+}
+
+export interface SaveState {
+  error?: string;
+}
+
+// Save an edited or new case authored as JSON. On success it redirects back to
+// the suite page; on a validation error it returns the message for the form.
+export async function saveCaseAction(_prev: SaveState | null, formData: FormData): Promise<SaveState> {
+  const json = String(formData.get("caseJson") ?? "");
+  const result = saveCaseFromJson(json);
+  if (!result.ok) return { error: result.error };
+  revalidatePath("/suite");
+  redirect("/suite");
+}
+
+export async function deleteCaseAction(formData: FormData): Promise<void> {
+  const caseId = String(formData.get("caseId") ?? "");
+  if (caseId) {
+    deleteCase(caseId);
+    revalidatePath("/suite");
   }
 }

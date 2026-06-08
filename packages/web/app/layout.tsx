@@ -1,4 +1,5 @@
 import "./globals.css";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { suiteName } from "../lib/db";
 
@@ -15,9 +16,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <div className="inner">
             <h1>AgentProbe</h1>
             <span className="sub">
-              regression dashboard &middot; suite <code>{suiteName()}</code> &middot; replay demo, no
-              live keys
+              suite <code>{suiteName()}</code>
             </span>
+            <nav className="top">
+              <Link href="/">Runs</Link>
+              <Link href="/suite">Suite</Link>
+            </nav>
           </div>
         </header>
         <main className="container">{children}</main>

@@ -14,6 +14,7 @@ import {
   redact,
   persistRun,
   Store,
+  SuiteStore,
   type Agent,
   type Case,
   type Judge,
@@ -100,7 +101,72 @@ async function main(): Promise<void> {
   const baseline = ids.find((i) => i.baseline);
   if (baseline) db.markBaseline(baseline.runId);
   db.close();
-  console.log(`seeded ${ids.length} runs into ${dbPath}`);
+
+  // Seed the authorable suite: a serializable mirror of the reference suite's
+  // cases, using output-field checks in place of the code-only Zod schemas so
+  // they can be edited in the dashboard.
+  seedAuthorableSuite();
+  console.log(`seeded ${ids.length} runs and the authorable suite into ${dbPath}`);
+}
+
+const AUTHORED_CASES: Case[] = [
+  {
+    id: "books-available-slot",
+    description: "Books the first open slot on a day that has availability.",
+    input: { intent: "book", day: "tuesday", service: "plumbing", customer: { name: "Pat Rivera", phone: "512-555-0142" } },
+    assertions: [
+      { kind: "tool-called", tool: "crm_upsert_customer" },
+      { kind: "tool-called", tool: "create_booking" },
+      { kind: "tool-args", tool: "create_booking", args: { service: "plumbing" }, match: "subset" },
+      { kind: "output-field", path: "status", op: "equals", value: "booked" },
+      { kind: "output-field", path: "confirmationId", op: "exists" },
+      { kind: "cost-budget", maxUsd: 0.02 },
+      { kind: "step-budget", maxSteps: 6 },
+    ],
+    rubric: { criteria: "Completes the booking and returns a confirmation reference.", passThreshold: 0.7 },
+  },
+  {
+    id: "declines-when-no-availability",
+    description: "On a fully booked day, declines without booking and offers an alternative.",
+    input: { intent: "book", day: "wednesday", service: "hvac", customer: { name: "Sam Lee", phone: "512-555-0199" } },
+    assertions: [
+      { kind: "tool-called", tool: "check_availability" },
+      { kind: "output-field", path: "status", op: "equals", value: "unavailable" },
+      { kind: "cost-budget", maxUsd: 0.02 },
+    ],
+    rubric: { criteria: "Declines gracefully without booking and suggests the next open day.", passThreshold: 0.7 },
+  },
+  {
+    id: "lists-availability",
+    description: "Answers an availability query with the open slots.",
+    input: { intent: "availability", day: "tuesday" },
+    assertions: [
+      { kind: "tool-called", tool: "check_availability" },
+      { kind: "output-field", path: "status", op: "equals", value: "info" },
+      { kind: "output-field", path: "slots", op: "exists" },
+      { kind: "latency-budget", maxMs: 600 },
+    ],
+    rubric: { criteria: "Lists the open slots for the requested day.", passThreshold: 0.7 },
+  },
+  {
+    id: "reports-property-history",
+    description: "Looks up a property and reports its type and last service date.",
+    input: { intent: "property", address: "12 Oak St" },
+    assertions: [
+      { kind: "tool-called", tool: "lookup_property" },
+      { kind: "output-field", path: "property.type", op: "exists" },
+      { kind: "output-field", path: "property.lastService", op: "exists" },
+      { kind: "cost-budget", maxUsd: 0.02 },
+    ],
+    rubric: { criteria: "Reports the property type and its last service date.", passThreshold: 0.7 },
+  },
+];
+
+function seedAuthorableSuite(): void {
+  const suiteStore = new SuiteStore(dbPath);
+  suiteStore.upsertSuite(suite.name, new Date(Date.UTC(2026, 5, 1)).toISOString());
+  AUTHORED_CASES.forEach((c, i) => suiteStore.upsertCase(suite.name, c, i));
+  suiteStore.close();
 }
 
 main().catch((err) => {

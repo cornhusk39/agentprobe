@@ -319,3 +319,45 @@ pre.code {
   gap: 12px;
   flex-wrap: wrap;
 }
+
+.btn.danger {
+  background: transparent;
+  color: var(--fail);
+  border: 1px solid color-mix(in srgb, var(--fail) 45%, transparent);
+}
+.btn.ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px solid var(--border);
+}
+
+textarea.editor {
+  width: 100%;
+  background: #0b0f15;
+  color: #c9d1d9;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+nav.top {
+  display: flex;
+  gap: 16px;
+  margin-left: auto;
+  font-size: 13px;
+}
+nav.top a {
+  color: var(--muted);
+}
+nav.top a:hover {
+  color: var(--text);
+}
+.actions-inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
