@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Secret-scanning gate. Runs gitleaks against staged changes before every
+# commit. A finding aborts the commit. This is intentionally strict: a leaked
+# secret in history is far more expensive to fix than a blocked commit.
+set -euo pipefail
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "pre-commit: gitleaks is not installed." >&2
+  echo "Install it (brew install gitleaks) so the secret gate can run." >&2
+  exit 1
+fi
+
+# --staged scans what is about to be committed, which is what we actually care
+# about at commit time. --redact keeps any finding out of the terminal log.
+gitleaks protect --staged --redact --config .gitleaks.toml

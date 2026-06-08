@@ -1,0 +1,21 @@
+# gitleaks configuration for AgentProbe.
+# Extends the upstream default rule set, then adds repo-specific allowlisting so
+# that example placeholders and synthetic demo data do not trip the scanner.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow committed example placeholders and synthetic demo data"
+paths = [
+  '''\.env\.example$''',
+  '''.*\.test\.ts$''',
+  '''examples/cassettes/.*\.json$''',
+]
+regexes = [
+  # placeholder keys in the example env file
+  '''ANTHROPIC_API_KEY=$''',
+  '''AGENT_BEARER_TOKEN=$''',
+  # obviously fake tokens used in tests and seeded cassettes
+  '''(?i)(test|fake|mock|dummy|example|redacted)[-_]?(token|key|secret)''',
+]

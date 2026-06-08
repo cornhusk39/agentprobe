@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+*.tsbuildinfo
+.next/
+out/
+
+# env and secrets, never commit these
+.env
+.env.*
+!.env.example
+
+# local databases produced by core
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+
+# test and coverage
+coverage/
+.vitest/
+
+# os and editor
+.DS_Store
+*.log
+.idea/
+.vscode/
