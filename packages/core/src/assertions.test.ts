@@ -1,0 +1,69 @@
+import { describe, it, expect } from "vitest";
+import { z } from "zod";
+import { evaluateAssertions, assertionsPassed, type Assertion } from "./assertions.js";
+import type { AgentRunResult } from "./types.js";
+
+const result: AgentRunResult = {
+  output: { confirmationId: "BK-123", when: "2026-06-09T09:00:00Z" },
+  trace: [
+    { type: "message", role: "user", content: "book tuesday 9am" },
+    { type: "tool_call", call: { name: "check_availability", args: { day: "tue" } } },
+    { type: "tool_call", call: { name: "book_slot", args: { slot: "tue-9am", customerId: 42 } } },
+    { type: "message", role: "assistant", content: "Booked." },
+  ],
+  metrics: { latencyMs: 800, costUsd: 0.012, steps: 4 },
+};
+
+describe("deterministic assertions", () => {
+  it("passes tool-called, tool-args (subset), and budgets that hold", () => {
+    const assertions: Assertion[] = [
+      { kind: "tool-called", tool: "book_slot" },
+      { kind: "tool-args", tool: "book_slot", args: { slot: "tue-9am" }, match: "subset" },
+      { kind: "latency-budget", maxMs: 1000 },
+      { kind: "cost-budget", maxUsd: 0.02 },
+      { kind: "step-budget", maxSteps: 5 },
+      { kind: "output-schema", schema: z.object({ confirmationId: z.string() }) },
+    ];
+    const results = evaluateAssertions(result, assertions);
+    expect(assertionsPassed(results)).toBe(true);
+  });
+
+  it("fails when the wrong tool is expected", () => {
+    const [r] = evaluateAssertions(result, [{ kind: "tool-called", tool: "cancel_booking" }]);
+    expect(r!.pass).toBe(false);
+    expect(r!.message).toContain("never called");
+  });
+
+  it("fails tool-args when arguments diverge", () => {
+    const [r] = evaluateAssertions(result, [
+      { kind: "tool-args", tool: "book_slot", args: { slot: "wed-9am" }, match: "subset" },
+    ]);
+    expect(r!.pass).toBe(false);
+  });
+
+  it("exact arg match is stricter than subset", () => {
+    const subset = evaluateAssertions(result, [
+      { kind: "tool-args", tool: "book_slot", args: { slot: "tue-9am" }, match: "subset" },
+    ]);
+    const exact = evaluateAssertions(result, [
+      { kind: "tool-args", tool: "book_slot", args: { slot: "tue-9am" }, match: "exact" },
+    ]);
+    expect(subset[0]!.pass).toBe(true);
+    // exact fails because the real call also carried customerId
+    expect(exact[0]!.pass).toBe(false);
+  });
+
+  it("reports observed values for over-budget metrics", () => {
+    const [r] = evaluateAssertions(result, [{ kind: "latency-budget", maxMs: 500 }]);
+    expect(r!.pass).toBe(false);
+    expect(r!.observed).toBe(800);
+    expect(r!.budget).toBe(500);
+  });
+
+  it("fails output-schema when the shape is wrong", () => {
+    const [r] = evaluateAssertions(result, [
+      { kind: "output-schema", schema: z.object({ missing: z.number() }) },
+    ]);
+    expect(r!.pass).toBe(false);
+  });
+});

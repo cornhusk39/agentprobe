@@ -7,3 +7,6 @@ export * from "./redaction.js";
 export * from "./cassette.js";
 export * from "./recorder.js";
 export * from "./adapters/http.js";
+export * from "./adapters/replay.js";
+export * from "./assertions.js";
+export * from "./suite.js";
