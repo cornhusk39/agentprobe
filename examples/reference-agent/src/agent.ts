@@ -1,9 +1,9 @@
-// The reference agent. It is a clean-room twin of a real home-service booking
-// agent, built with mock tools so it can run with no external calls and no real
-// data. It is deliberately deterministic: given an input it always produces the
-// same trace and output, which is what lets a recorded cassette be replayed and
-// scored forever. In production you would point AgentProbe's HTTP adapter at the
-// real agent; here the same Agent interface is satisfied in process.
+// The reference agent: a mock home-service booking agent built with fake tools
+// so it runs with no external calls and no real data. It is deliberately
+// deterministic, given an input it always produces the same trace and output,
+// which is what lets a recorded cassette be replayed and scored forever. For a
+// real agent you would point AgentProbe's HTTP adapter at its endpoint; here the
+// same Agent interface is satisfied in process.
 
 import { defineAgent, type AgentRunResult, type ToolCall, type TraceStep } from "@agentprobe/core";
 import { AVAILABILITY, PROPERTIES, confirmationFor } from "./data.js";

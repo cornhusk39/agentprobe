@@ -25,7 +25,8 @@ data/
 coverage/
 .vitest/
 
-# os and editor
+# local tooling / editor
+.claude/
 .DS_Store
 *.log
 .idea/
