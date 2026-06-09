@@ -94,9 +94,11 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
           {run.isBaseline ? (
             <span className="pill muted">current baseline</span>
           ) : (
-            <BaselineButton runId={run.id} />
+            <>
+              <BaselineButton runId={run.id} />
+              <DeleteRunButton runId={run.id} />
+            </>
           )}
-          <DeleteRunButton runId={run.id} />
         </span>
       </div>
       <div className="kv">

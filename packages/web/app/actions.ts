@@ -7,7 +7,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { markBaselineById, deleteRunById } from "../lib/db";
+import { markBaselineById, deleteRunById, getBaseline } from "../lib/db";
 import { runActiveSuite } from "../lib/engine";
 import { saveCaseFromJson, deleteCase, importSuiteJson } from "../lib/suite";
 
@@ -42,7 +42,10 @@ export async function setBaselineAction(formData: FormData): Promise<void> {
 // why this redirects rather than revalidating in place.
 export async function deleteRunAction(formData: FormData): Promise<void> {
   const id = Number(formData.get("runId"));
-  if (Number.isFinite(id)) {
+  // Refuse to delete the current baseline, which would silently leave the suite
+  // with nothing to diff against. Re-pick a baseline first. The UI also hides the
+  // button on the baseline run; this is the defensive backstop.
+  if (Number.isFinite(id) && getBaseline()?.id !== id) {
     deleteRunById(id);
     revalidatePath("/");
   }
