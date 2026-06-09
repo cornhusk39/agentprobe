@@ -107,8 +107,13 @@ export async function baselineCommand(config: AgentProbeConfig): Promise<RunRepo
   if (runId !== null) {
     const store = openStore(config);
     if (store) {
-      store.markBaseline(runId);
-      store.close();
+      // Close even if markBaseline throws, so the SQLite handle and WAL lock are
+      // never leaked.
+      try {
+        store.markBaseline(runId);
+      } finally {
+        store.close();
+      }
     }
   }
   return report;
@@ -122,6 +127,11 @@ export interface CheckResult {
 // The CI gate. Replay, diff against the committed baseline, and report. The
 // caller decides the exit code from regression.regressed.
 export async function checkCommand(config: AgentProbeConfig): Promise<CheckResult> {
+  if (!existsSync(config.baselineFile)) {
+    throw new Error(
+      `No baseline found at ${config.baselineFile}. Run 'agentprobe baseline' to set one first.`,
+    );
+  }
   const report = await replayReport(config);
   const baseline = await readBaseline(config.baselineFile);
   const thresholds = { ...DEFAULT_THRESHOLDS, ...config.thresholds };

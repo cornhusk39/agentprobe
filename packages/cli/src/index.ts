@@ -58,7 +58,13 @@ function parseArgs(argv: string[]): ParsedArgs {
       configPath = next;
     } else if (arg === "--json") {
       json = true;
-    } else if (!command && arg && !arg.startsWith("-")) {
+    } else if (arg === "--help" || arg === "-h") {
+      command = "help";
+    } else if (arg && arg.startsWith("-")) {
+      // Reject unknown options instead of ignoring them, so a typo like --jsonn
+      // cannot silently change behavior (for example disabling JSON output in CI).
+      throw new Error(`Unknown option "${arg}". Run 'agentprobe help' for usage.`);
+    } else if (!command && arg) {
       command = arg;
     }
   }
@@ -96,9 +102,14 @@ function printRunSummary(report: RunReport): void {
 
 async function main(): Promise<number> {
   const { command, configPath, json } = parseArgs(process.argv.slice(2));
-  if (!command || command === "help" || command === "--help") {
+  // No command is a usage error (exit 1); an explicit help request succeeds.
+  if (!command) {
     console.log(USAGE);
-    return command ? 0 : 1;
+    return 1;
+  }
+  if (command === "help") {
+    console.log(USAGE);
+    return 0;
   }
 
   // init runs before any config is loaded, since it is what creates the config.

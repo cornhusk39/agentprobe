@@ -29,6 +29,22 @@ export function LineChart({
   max,
   color = "#58a6ff",
 }: LineChartProps) {
+  // With no data, Math.min/max over an empty array yields +/-Infinity and the
+  // SVG math produces NaN coordinates. Render a neutral empty state instead.
+  if (values.length === 0) {
+    return (
+      <div className="panel">
+        <div className="chart-title">
+          <span className="label">{label}</span>
+          <span className="latest">-</span>
+        </div>
+        <div className="meta" style={{ height: H, display: "flex", alignItems: "center" }}>
+          no data yet
+        </div>
+      </div>
+    );
+  }
+
   const lo = min ?? Math.min(...values);
   const hi = max ?? Math.max(...values);
   const span = hi - lo || 1;

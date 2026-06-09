@@ -9,6 +9,7 @@
 // rubric works offline too.
 
 import path from "node:path";
+import { existsSync } from "node:fs";
 import {
   SuiteStore,
   ReplayStore,
@@ -21,7 +22,21 @@ import {
 } from "@agentprobe/core";
 import { dbPath, suiteName } from "./db";
 
+// Locate the reference example by walking up from the working directory until a
+// directory containing examples/reference-agent is found. This works whether the
+// server was started from the web package or the repo root, rather than assuming
+// a fixed depth (process.cwd() is reliable in the Next server runtime, but the
+// distance to the repo root is not).
 function exampleDir(): string {
+  let dir = process.cwd();
+  for (let i = 0; i < 6; i++) {
+    const candidate = path.join(dir, "examples", "reference-agent");
+    if (existsSync(candidate)) return candidate;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // Fall back to the conventional location (web package two levels below root).
   return path.resolve(process.cwd(), "..", "..", "examples", "reference-agent");
 }
 
@@ -58,8 +73,12 @@ export interface RunSummary {
 
 export async function runActiveSuite(): Promise<RunSummary> {
   const suiteStore = new SuiteStore(dbPath());
-  const suite = suiteStore.materialize(suiteName());
+  const cases = suiteStore.getCases(suiteName());
   suiteStore.close();
+  if (cases.length === 0) {
+    throw new Error("The suite has no cases. Add a case under Suite before running.");
+  }
+  const suite = { name: suiteName(), cases };
 
   const replay = await ReplayStore.fromDir(path.join(exampleDir(), "cassettes"));
   const report = await runSuite({

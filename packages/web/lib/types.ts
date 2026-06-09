@@ -1,9 +1,9 @@
-// The shape of a seeded run as the dashboard consumes it. It is a run report
-// (the same structure core produces) plus what persistence and the diff add: a
-// numeric id, the baseline flag, and a precomputed regression verdict against
-// the baseline. Everything here is imported as types only, so none of the
-// engine's runtime (and none of its native dependencies) reaches the web bundle.
-// The dashboard reads JSON, never SQLite, and never imports an engine value.
+// The shape of a run as the dashboard consumes it. It is a run report (the same
+// structure core produces) plus what persistence and the diff add: a numeric id,
+// the baseline flag, and a precomputed regression verdict against the baseline.
+// This module imports types only. Runtime database access (better-sqlite3) is
+// confined to the server-only modules under lib/ (db.ts, suite.ts, engine.ts),
+// so the engine's native dependency never reaches a client component.
 
 import type { RunReport } from "@agentprobe/core";
 

@@ -120,6 +120,13 @@ describe("CLI record/baseline/check loop", () => {
     await expect(initCommand(dir)).rejects.toThrow(/already exists/);
   });
 
+  it("check reports a clear error when no baseline exists yet", async () => {
+    const dir = await workspace();
+    const config = configFor(dir, () => goodAgent);
+    await recordCommand(config); // cassettes exist, but no baseline was set
+    await expect(checkCommand(config)).rejects.toThrow(/No baseline found/);
+  });
+
   it("computes aggregate suite stats", async () => {
     const dir = await workspace();
     const config = configFor(dir, () => goodAgent);

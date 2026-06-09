@@ -17,6 +17,21 @@ export default function HomePage() {
   const t = trendSeries();
   const flaky = flakyCases();
 
+  if (runs.length === 0) {
+    return (
+      <>
+        <RunControls />
+        <div className="panel" style={{ marginTop: 16 }}>
+          <p style={{ margin: 0 }}>No runs recorded yet.</p>
+          <p className="meta" style={{ marginBottom: 0 }}>
+            Click <b>Run suite now</b> to replay the bundled cassettes and record your first run, or
+            edit the cases under <a href="/suite">Suite</a> first.
+          </p>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <RunControls />

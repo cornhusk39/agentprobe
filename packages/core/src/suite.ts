@@ -43,11 +43,24 @@ export type Suite = z.infer<typeof suiteSchema>;
 export function defineSuite(suite: Suite): Suite {
   const parsed = suiteSchema.parse(suite);
   const ids = new Set<string>();
+  // Cassette filenames sanitize the case id to a safe character set, so two ids
+  // that differ only in sanitized-away characters (for example "a/b" and "a_b")
+  // would collide on disk and silently overwrite each other. Reject both the raw
+  // duplicate and the post-sanitization collision here, where every id is known.
+  const fileNames = new Map<string, string>();
   for (const c of parsed.cases) {
     if (ids.has(c.id)) {
       throw new Error(`Duplicate case id "${c.id}" in suite "${parsed.name}".`);
     }
     ids.add(c.id);
+    const safe = c.id.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const clash = fileNames.get(safe);
+    if (clash) {
+      throw new Error(
+        `Case ids "${clash}" and "${c.id}" map to the same cassette filename in suite "${parsed.name}". Rename one.`,
+      );
+    }
+    fileNames.set(safe, c.id);
   }
   return parsed;
 }

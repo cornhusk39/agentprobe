@@ -109,7 +109,7 @@ export default async function ComparePage({
                 {diff.cases.map((c) => (
                   <tr key={c.caseId}>
                     <td>
-                      <Link href={`/runs/${candidate}`}>{c.caseId}</Link>
+                      <Link href={`/cases/${encodeURIComponent(c.caseId)}`}>{c.caseId}</Link>
                     </td>
                     <td>{classPill(c.classification)}</td>
                     <td className="meta">

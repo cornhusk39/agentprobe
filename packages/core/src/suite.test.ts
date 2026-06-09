@@ -28,6 +28,18 @@ describe("defineSuite", () => {
     expect(noThreshold.cases[0]!.rubric!.passThreshold).toBe(0.7);
   });
 
+  it("rejects case ids that collide on the sanitized cassette filename", () => {
+    expect(() =>
+      defineSuite({
+        name: "collide",
+        cases: [
+          { id: "a/b", input: {} },
+          { id: "a_b", input: {} },
+        ],
+      }),
+    ).toThrow(/same cassette filename/);
+  });
+
   it("rejects duplicate case ids", () => {
     expect(() =>
       defineSuite({

@@ -10,23 +10,25 @@ import type { AgentInput, AgentRunResult, RunContext } from "../types.js";
 import { readCassetteDir, type Cassette } from "../cassette.js";
 
 // Stable JSON used to compare a replayed input against the recorded one. Keys
-// are sorted so ordering differences do not register as drift.
+// are sorted so ordering differences do not register as drift. Cycles are guarded
+// against by tracking only the current ancestor chain, so a value that legitimately
+// reuses the same sub-object in two sibling positions (a DAG, not a cycle) still
+// serializes correctly rather than being nulled out.
 function canonical(value: unknown): string {
-  const seen = new WeakSet();
-  const norm = (v: unknown): unknown => {
+  const norm = (v: unknown, ancestors: Set<object>): unknown => {
     if (v && typeof v === "object") {
-      if (seen.has(v as object)) return null;
-      seen.add(v as object);
-      if (Array.isArray(v)) return v.map(norm);
+      if (ancestors.has(v as object)) return null;
+      const next = new Set(ancestors).add(v as object);
+      if (Array.isArray(v)) return v.map((item) => norm(item, next));
       const out: Record<string, unknown> = {};
       for (const key of Object.keys(v as Record<string, unknown>).sort()) {
-        out[key] = norm((v as Record<string, unknown>)[key]);
+        out[key] = norm((v as Record<string, unknown>)[key], next);
       }
       return out;
     }
     return v;
   };
-  return JSON.stringify(norm(value));
+  return JSON.stringify(norm(value, new Set()));
 }
 
 export class CassetteInputDriftError extends Error {

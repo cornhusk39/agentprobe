@@ -51,6 +51,18 @@ describe("replay transport", () => {
     expect(assertionsPassed(evaluateAssertions(result, assertions))).toBe(true);
   });
 
+  it("does not flag drift for inputs that reuse the same sub-object (a DAG)", async () => {
+    // A shared reference appearing in two sibling positions is not a cycle and
+    // must canonicalize correctly, not be nulled out (which would falsely match
+    // or mismatch under strictInput).
+    const shared = { city: "Austin" };
+    const input = { from: shared, to: shared };
+    const { cassette } = await record({ agent: flaky, caseId: "dag", input, ctx });
+    const replay = replayAgent(cassette, { strictInput: true });
+    // An equivalent input with the same shape must not be reported as drift.
+    await expect(replay.run({ from: { city: "Austin" }, to: { city: "Austin" } }, ctx)).resolves.toBeTruthy();
+  });
+
   it("flags input drift when strictInput is on", async () => {
     const { cassette } = await record({ agent: flaky, caseId: "drift", input: { q: "a" }, ctx });
     const replay = replayAgent(cassette, { strictInput: true });
