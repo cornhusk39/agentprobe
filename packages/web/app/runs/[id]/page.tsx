@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getRun } from "../../../lib/db";
 import { TraceView } from "../../../components/TraceView";
 import { BaselineButton } from "../../../components/BaselineButton";
+import { DeleteRunButton } from "../../../components/DeleteRunButton";
 import type { CaseClassification, SeedCase } from "../../../lib/types";
 
 // Server-rendered per request against the live database.
@@ -88,11 +89,14 @@ export default async function RunDetail({ params }: { params: Promise<{ id: stri
         <h2 style={{ marginTop: 8 }}>
           Run #{run.id} &middot; {run.runUid}
         </h2>
-        {run.isBaseline ? (
-          <span className="pill muted">current baseline</span>
-        ) : (
-          <BaselineButton runId={run.id} />
-        )}
+        <span className="actions-inline">
+          {run.isBaseline ? (
+            <span className="pill muted">current baseline</span>
+          ) : (
+            <BaselineButton runId={run.id} />
+          )}
+          <DeleteRunButton runId={run.id} />
+        </span>
       </div>
       <div className="kv">
         <span>

@@ -98,6 +98,22 @@ describe("Store", () => {
     store.close();
   });
 
+  it("deletes a run and cascades to its case results", async () => {
+    const store = new Store(await tmpDb());
+    const a = store.saveRun(...(Object.values(makeRun("run-a", 2)) as [NewRun, NewCaseResult[]]));
+    const b = store.saveRun(...(Object.values(makeRun("run-b", 1)) as [NewRun, NewCaseResult[]]));
+
+    expect(store.getCaseResults(a)).toHaveLength(2);
+    expect(store.deleteRun(a)).toBe(true);
+    expect(store.getRun(a)).toBeUndefined();
+    // case results for the deleted run are gone, the other run is untouched
+    expect(store.getCaseResults(a)).toHaveLength(0);
+    expect(store.getRun(b)?.runUid).toBe("run-b");
+    // deleting a missing run reports no change
+    expect(store.deleteRun(9999)).toBe(false);
+    store.close();
+  });
+
   it("returns trend points oldest to newest", async () => {
     const store = new Store(await tmpDb());
     store.saveRun(...Object.values(makeRun("run-1", 2)) as [NewRun, NewCaseResult[]]);

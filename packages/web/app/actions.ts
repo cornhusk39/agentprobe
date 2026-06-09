@@ -7,7 +7,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { markBaselineById } from "../lib/db";
+import { markBaselineById, deleteRunById } from "../lib/db";
 import { runActiveSuite } from "../lib/engine";
 import { saveCaseFromJson, deleteCase } from "../lib/suite";
 
@@ -36,6 +36,17 @@ export async function setBaselineAction(formData: FormData): Promise<void> {
     revalidatePath("/");
     revalidatePath(`/runs/${id}`);
   }
+}
+
+// Delete a run, then return to the run list. Deleting the run you are viewing is
+// why this redirects rather than revalidating in place.
+export async function deleteRunAction(formData: FormData): Promise<void> {
+  const id = Number(formData.get("runId"));
+  if (Number.isFinite(id)) {
+    deleteRunById(id);
+    revalidatePath("/");
+  }
+  redirect("/");
 }
 
 export interface SaveState {

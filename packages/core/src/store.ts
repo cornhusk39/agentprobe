@@ -297,6 +297,14 @@ export class Store {
     return row ? toStoredRun(row) : undefined;
   }
 
+  // Delete a run and its case results. The case_results rows go with it via the
+  // ON DELETE CASCADE foreign key (foreign_keys is enabled in the constructor).
+  // Returns true if a run was actually removed.
+  deleteRun(id: number): boolean {
+    const info = this.db.prepare("DELETE FROM runs WHERE id = ?").run(id);
+    return info.changes > 0;
+  }
+
   // Oldest-to-newest series for the trend charts.
   trends(suite: string, limit = 50): TrendPoint[] {
     const rows = this.db

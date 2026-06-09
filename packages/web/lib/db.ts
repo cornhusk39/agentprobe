@@ -38,6 +38,11 @@ export function markBaselineById(id: number): void {
   db().markBaseline(id);
 }
 
+// Delete a run and its case results. Used by the "delete run" action.
+export function deleteRunById(id: number): boolean {
+  return db().deleteRun(id);
+}
+
 function toCase(c: StoredCaseResult): SeedCase {
   return {
     caseId: c.caseId,
