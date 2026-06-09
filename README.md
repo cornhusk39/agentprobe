@@ -161,6 +161,9 @@ pnpm typecheck
 pnpm lint
 pnpm build        # engine, CLI, and the dashboard
 
+# scaffold a new project (writes agentprobe.config.ts and suite.ts):
+pnpm exec agentprobe init
+
 # in examples/reference-agent:
 pnpm record       # capture redacted cassettes from the live agent (only command
                   # that may touch the network or the model)

@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { defineAgent, defineSuite, scriptedJudge, type Case } from "@agentprobe/core";
 import { defineConfig } from "./config.js";
-import { recordCommand, baselineCommand, checkCommand, listRunsCommand } from "./run.js";
+import { recordCommand, baselineCommand, checkCommand, listRunsCommand, initCommand } from "./run.js";
 
 const tmp: string[] = [];
 afterEach(async () => {
@@ -96,6 +96,21 @@ describe("CLI record/baseline/check loop", () => {
     await recordCommand(configFor(dir, () => goodAgent));
     const reverted = await checkCommand(configFor(dir, () => goodAgent));
     expect(reverted.regression.regressed).toBe(false);
+  });
+
+  it("scaffolds a starter project and refuses to overwrite an existing config", async () => {
+    const dir = await workspace();
+    const created = await initCommand(dir);
+    expect(created.map((f) => path.basename(f))).toEqual(["agentprobe.config.ts", "suite.ts"]);
+
+    const config = await fs.readFile(path.join(dir, "agentprobe.config.ts"), "utf8");
+    expect(config).toContain("defineConfig");
+    expect(config).toContain("httpAgent");
+    const suite = await fs.readFile(path.join(dir, "suite.ts"), "utf8");
+    expect(suite).toContain("defineSuite");
+
+    // Running again refuses, so a real project is never clobbered.
+    await expect(initCommand(dir)).rejects.toThrow(/already exists/);
   });
 
   it("lists the stored run history newest first", async () => {

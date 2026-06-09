@@ -7,7 +7,14 @@ import path from "node:path";
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import type { AgentProbeConfig } from "./config.js";
-import { recordCommand, replayCommand, baselineCommand, checkCommand, listRunsCommand } from "./run.js";
+import {
+  recordCommand,
+  replayCommand,
+  baselineCommand,
+  checkCommand,
+  listRunsCommand,
+  initCommand,
+} from "./run.js";
 import { regressionMarkdown, type RunReport } from "@agentprobe/core";
 
 const USAGE = `agentprobe <command> [--config <path>]
@@ -21,6 +28,8 @@ Commands:
   check      Replay and diff against the baseline. Exits non-zero on a
              regression. This is what CI runs.
   runs       Print the stored run history for the suite, newest first.
+  init       Scaffold a starter agentprobe.config.ts and suite.ts in the
+             current directory.
 
 Options:
   --config <path>   Path to the config module (default: ./agentprobe.config.ts)
@@ -88,6 +97,15 @@ async function main(): Promise<number> {
   if (!command || command === "help" || command === "--help") {
     console.log(USAGE);
     return command ? 0 : 1;
+  }
+
+  // init runs before any config is loaded, since it is what creates the config.
+  if (command === "init") {
+    const created = await initCommand(process.cwd());
+    console.log("scaffolded a starter project:");
+    for (const f of created) console.log(`  ${path.relative(process.cwd(), f)}`);
+    console.log("\nNext: edit suite.ts and agentprobe.config.ts, then run `agentprobe record`.");
+    return 0;
   }
 
   const config = await loadConfig(configPath);

@@ -144,6 +144,77 @@ async function persistToDb(config: AgentProbeConfig, report: RunReport): Promise
   return id;
 }
 
+const CONFIG_TEMPLATE = `import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "@agentprobe/cli";
+import { httpAgent, anthropicJudge } from "@agentprobe/core";
+import { suite } from "./suite.js";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+export default defineConfig({
+  suite,
+  cassetteDir: path.join(here, "cassettes"),
+  judgeCacheFile: path.join(here, "judge-cache.json"),
+  baselineFile: path.join(here, "baseline.json"),
+  dbPath: process.env.AGENTPROBE_DB_PATH ?? path.join(here, "data", "agentprobe.db"),
+  // The live agent used by 'record'. Point it at your agent's HTTP endpoint. The
+  // bearer token is read from env at call time, never committed.
+  liveAgent: () =>
+    httpAgent({
+      name: "my-agent",
+      url: process.env.MY_AGENT_URL ?? "http://localhost:8080/run",
+      allowlist: ["localhost"],
+      bearerEnvVar: "AGENT_BEARER_TOKEN",
+      retries: 2,
+    }),
+  // The judge used while recording. Needs ANTHROPIC_API_KEY. Replace with a
+  // deterministic judge if you want a fully offline demo.
+  recordJudge: anthropicJudge(),
+});
+`;
+
+const SUITE_TEMPLATE = `import { defineSuite } from "@agentprobe/core";
+
+export const suite = defineSuite({
+  name: "my-suite",
+  cases: [
+    {
+      id: "example",
+      description: "Describe what this case checks.",
+      input: { question: "What are your hours?" },
+      assertions: [
+        // See the assertion catalog: tool-called, tool-not-called, tool-args,
+        // tool-call-count, tool-call-order, output-field, output-schema,
+        // latency-budget, cost-budget, step-budget.
+        { kind: "latency-budget", maxMs: 5000 },
+      ],
+      rubric: { criteria: "Answers the question helpfully and accurately.", passThreshold: 0.7 },
+    },
+  ],
+});
+`;
+
+// Scaffold a starter project: a config and a sample suite in the target
+// directory. Refuses to overwrite an existing config so a real project is never
+// clobbered. Returns the paths it created.
+export async function initCommand(dir: string): Promise<string[]> {
+  const configPath = path.join(dir, "agentprobe.config.ts");
+  const suitePath = path.join(dir, "suite.ts");
+  if (existsSync(configPath)) {
+    throw new Error(`agentprobe.config.ts already exists in ${dir}. Refusing to overwrite.`);
+  }
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(configPath, CONFIG_TEMPLATE, "utf8");
+  // Do not clobber a suite the user may already have.
+  const created = [configPath];
+  if (!existsSync(suitePath)) {
+    await fs.writeFile(suitePath, SUITE_TEMPLATE, "utf8");
+    created.push(suitePath);
+  }
+  return created;
+}
+
 // Read the stored run history for this suite, newest first. Lets the run log be
 // inspected from the terminal, without the dashboard.
 export function listRunsCommand(config: AgentProbeConfig, limit = 20): StoredRun[] {
