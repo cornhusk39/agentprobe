@@ -3,7 +3,7 @@
 // returns data, with no process.exit or console formatting mixed in.
 
 import path from "node:path";
-import { promises as fs } from "node:fs";
+import { promises as fs, existsSync } from "node:fs";
 import {
   ReplayStore,
   JudgeCache,
@@ -22,6 +22,7 @@ import {
   type Judge,
   type RunReport,
   type RegressionReport,
+  type StoredRun,
 } from "@agentprobe/core";
 import type { AgentProbeConfig } from "./config.js";
 
@@ -134,4 +135,19 @@ async function persistToDb(config: AgentProbeConfig, report: RunReport): Promise
   const id = persistRun(store, report);
   store.close();
   return id;
+}
+
+// Read the stored run history for this suite, newest first. Lets the run log be
+// inspected from the terminal, without the dashboard.
+export function listRunsCommand(config: AgentProbeConfig, limit = 20): StoredRun[] {
+  // No database file means nothing has been recorded yet; that is an empty
+  // history, not an error. Avoids creating a stray database just to read it.
+  if (!config.dbPath || !existsSync(config.dbPath)) return [];
+  const store = openStore(config);
+  if (!store) return [];
+  try {
+    return store.listRuns(config.suite.name, limit);
+  } finally {
+    store.close();
+  }
 }

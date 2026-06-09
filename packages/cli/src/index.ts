@@ -7,7 +7,7 @@ import path from "node:path";
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import type { AgentProbeConfig } from "./config.js";
-import { recordCommand, replayCommand, baselineCommand, checkCommand } from "./run.js";
+import { recordCommand, replayCommand, baselineCommand, checkCommand, listRunsCommand } from "./run.js";
 import { regressionMarkdown, type RunReport } from "@agentprobe/core";
 
 const USAGE = `agentprobe <command> [--config <path>]
@@ -20,6 +20,7 @@ Commands:
   baseline   Replay and save the result as the suite's committed baseline.
   check      Replay and diff against the baseline. Exits non-zero on a
              regression. This is what CI runs.
+  runs       Print the stored run history for the suite, newest first.
 
 Options:
   --config <path>   Path to the config module (default: ./agentprobe.config.ts)
@@ -141,6 +142,23 @@ async function main(): Promise<number> {
         return 1;
       }
       console.log("\nPASS: no regressions against the baseline.");
+      return 0;
+    }
+    case "runs": {
+      const runs = listRunsCommand(config);
+      if (runs.length === 0) {
+        console.log(`No runs recorded yet for suite "${config.suite.name}".`);
+        return 0;
+      }
+      console.log(`run history for suite "${config.suite.name}" (newest first):\n`);
+      for (const r of runs) {
+        const flag = r.isBaseline ? " *baseline" : "";
+        const judge = r.avgJudgeScore !== null ? `judge ${r.avgJudgeScore.toFixed(2)}` : "judge -";
+        console.log(
+          `  #${r.id}  ${r.createdAt.slice(0, 19).replace("T", " ")}  ${r.mode}  ` +
+            `${r.casesPassed}/${r.casesTotal}  ${judge}  ${fmtMoney(r.totalCostUsd)}  ${r.totalLatencyMs}ms${flag}`,
+        );
+      }
       return 0;
     }
     default:

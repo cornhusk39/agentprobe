@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { defineAgent, defineSuite, scriptedJudge, type Case } from "@agentprobe/core";
 import { defineConfig } from "./config.js";
-import { recordCommand, baselineCommand, checkCommand } from "./run.js";
+import { recordCommand, baselineCommand, checkCommand, listRunsCommand } from "./run.js";
 
 const tmp: string[] = [];
 afterEach(async () => {
@@ -96,5 +96,23 @@ describe("CLI record/baseline/check loop", () => {
     await recordCommand(configFor(dir, () => goodAgent));
     const reverted = await checkCommand(configFor(dir, () => goodAgent));
     expect(reverted.regression.regressed).toBe(false);
+  });
+
+  it("lists the stored run history newest first", async () => {
+    const dir = await workspace();
+    const config = configFor(dir, () => goodAgent);
+    // No runs yet.
+    expect(listRunsCommand(config)).toHaveLength(0);
+
+    // Each record persists a run; baseline persists another.
+    await recordCommand(config);
+    await baselineCommand(config);
+
+    const runs = listRunsCommand(config);
+    expect(runs.length).toBe(2);
+    // Newest first: ids descend.
+    expect(runs[0]!.id).toBeGreaterThan(runs[1]!.id);
+    // The baseline run is flagged.
+    expect(runs.some((r) => r.isBaseline)).toBe(true);
   });
 });
