@@ -39,8 +39,16 @@ export interface HttpAgentOptions {
   maxResponseBytes?: number;
   // Optional mapper for agents whose JSON does not already match the contract.
   mapResponse?: (body: unknown) => unknown;
+  // How many times to retry a transient failure (a network error, a timeout, or
+  // a 5xx). Default 0. Client errors (4xx), the allowlist refusal, redirects,
+  // and an over-cap response are never retried; they are deterministic.
+  retries?: number;
+  // Base backoff between retries, multiplied by the attempt number. Default 200.
+  retryBackoffMs?: number;
   // Injected for testing. Defaults to global fetch.
   fetchImpl?: typeof fetch;
+  // Injected for testing so retry backoff does not slow the suite.
+  sleepImpl?: (ms: number) => Promise<void>;
 }
 
 export class EndpointNotAllowedError extends Error {
@@ -61,6 +69,15 @@ export class UnexpectedRedirectError extends Error {
   constructor(status: number) {
     super(`Agent endpoint returned a redirect (${status}). Redirects are not followed.`);
     this.name = "UnexpectedRedirectError";
+  }
+}
+
+// A non-ok HTTP status. Carries the code so the retry logic can tell a transient
+// 5xx (retry) from a client 4xx (do not retry).
+export class HttpStatusError extends Error {
+  constructor(public readonly status: number) {
+    super(`Agent endpoint returned HTTP ${status}`);
+    this.name = "HttpStatusError";
   }
 }
 
@@ -96,6 +113,24 @@ async function readCapped(res: Response, limit: number): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
+const defaultSleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Decide whether a failed attempt should be retried. Transient failures (a
+// network error thrown by fetch, a timeout abort, a 5xx) are worth retrying; the
+// deterministic refusals and client errors are not. A caller-driven cancellation
+// is never retried.
+function isRetryable(err: unknown, callerAborted: boolean): boolean {
+  if (err instanceof EndpointNotAllowedError) return false;
+  if (err instanceof ResponseTooLargeError) return false;
+  if (err instanceof UnexpectedRedirectError) return false;
+  if (err instanceof HttpStatusError) return err.status >= 500;
+  // An abort is the timeout firing (retryable) unless the caller's signal is the
+  // one that aborted, which means deliberate cancellation (terminal).
+  if (err instanceof Error && err.name === "AbortError") return !callerAborted;
+  // Anything else is a network-level error: retry it.
+  return true;
+}
+
 export function httpAgent(options: HttpAgentOptions): Agent {
   const {
     name,
@@ -105,7 +140,10 @@ export function httpAgent(options: HttpAgentOptions): Agent {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     maxResponseBytes = DEFAULT_MAX_BYTES,
     mapResponse,
+    retries = 0,
+    retryBackoffMs = 200,
     fetchImpl = fetch,
+    sleepImpl = defaultSleep,
   } = options;
 
   const parsed = new URL(url);
@@ -124,57 +162,74 @@ export function httpAgent(options: HttpAgentOptions): Agent {
         const token = process.env[bearerEnvVar];
         if (token) headers["authorization"] = `Bearer ${token}`;
       }
-
-      // Compose our own timeout with any caller-provided abort signal.
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-      const onAbort = () => controller.abort();
-      ctx.signal?.addEventListener("abort", onAbort, { once: true });
-
       const started = ctx.now();
-      try {
-        const res = await fetchImpl(parsed, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ input }),
-          // Never chase a redirect to a host that might not be on the allowlist.
-          redirect: "manual",
-          signal: controller.signal,
-        });
 
-        // redirect: "manual" surfaces 3xx as an opaque response or a real
-        // status; treat any redirect status as a hard error.
-        if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
-          throw new UnexpectedRedirectError(res.status);
+      // One network attempt: fetch, validate the response, and build the result.
+      // Throws a typed error the retry loop classifies.
+      const attempt = async (): Promise<AgentRunResult> => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        const onAbort = () => controller.abort();
+        ctx.signal?.addEventListener("abort", onAbort, { once: true });
+        try {
+          const res = await fetchImpl(parsed, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ input }),
+            // Never chase a redirect to a host that might not be on the allowlist.
+            redirect: "manual",
+            signal: controller.signal,
+          });
+
+          // redirect: "manual" surfaces 3xx as an opaque response or a real
+          // status; treat any redirect status as a hard error.
+          if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
+            throw new UnexpectedRedirectError(res.status);
+          }
+          if (!res.ok) {
+            throw new HttpStatusError(res.status);
+          }
+
+          const text = await readCapped(res, maxResponseBytes);
+          const json: unknown = text ? JSON.parse(text) : {};
+          const mapped = mapResponse ? mapResponse(json) : json;
+          const body = httpResponseSchema.parse(mapped);
+
+          const latencyMs = ctx.now() - started;
+          // Trust the agent for cost and tokens; fill latency from our own
+          // measurement and step count from the trace when the agent omits them.
+          const result: AgentRunResult = {
+            output: body.output,
+            trace: body.trace,
+            metrics: {
+              latencyMs: body.metrics?.latencyMs ?? latencyMs,
+              costUsd: body.metrics?.costUsd ?? 0,
+              steps: body.metrics?.steps ?? body.trace.length,
+              inputTokens: body.metrics?.inputTokens,
+              outputTokens: body.metrics?.outputTokens,
+            },
+          };
+          return agentRunResultSchema.parse(result);
+        } finally {
+          clearTimeout(timer);
+          ctx.signal?.removeEventListener("abort", onAbort);
         }
-        if (!res.ok) {
-          throw new Error(`Agent endpoint returned HTTP ${res.status}`);
+      };
+
+      let lastErr: unknown;
+      for (let i = 0; i <= retries; i++) {
+        if (i > 0) await sleepImpl(retryBackoffMs * i);
+        try {
+          return await attempt();
+        } catch (err) {
+          lastErr = err;
+          if (i < retries && isRetryable(err, Boolean(ctx.signal?.aborted))) continue;
+          throw err;
         }
-
-        const text = await readCapped(res, maxResponseBytes);
-        const json: unknown = text ? JSON.parse(text) : {};
-        const mapped = mapResponse ? mapResponse(json) : json;
-        const body = httpResponseSchema.parse(mapped);
-
-        const latencyMs = ctx.now() - started;
-        // Trust the agent for cost and tokens; fill latency from our own
-        // measurement and step count from the trace when the agent omits them.
-        const result: AgentRunResult = {
-          output: body.output,
-          trace: body.trace,
-          metrics: {
-            latencyMs: body.metrics?.latencyMs ?? latencyMs,
-            costUsd: body.metrics?.costUsd ?? 0,
-            steps: body.metrics?.steps ?? body.trace.length,
-            inputTokens: body.metrics?.inputTokens,
-            outputTokens: body.metrics?.outputTokens,
-          },
-        };
-        return agentRunResultSchema.parse(result);
-      } finally {
-        clearTimeout(timer);
-        ctx.signal?.removeEventListener("abort", onAbort);
       }
+      // Unreachable in practice (the loop either returns or throws), but keeps
+      // the type checker satisfied.
+      throw lastErr;
     },
   };
 }

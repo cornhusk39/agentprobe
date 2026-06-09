@@ -4,8 +4,11 @@ import {
   EndpointNotAllowedError,
   ResponseTooLargeError,
   UnexpectedRedirectError,
+  HttpStatusError,
 } from "./http.js";
 import type { RunContext } from "../types.js";
+
+const noSleep = () => Promise.resolve();
 
 // A context whose clock returns scripted values so measured latency is exact.
 function scriptedCtx(times: number[]): RunContext {
@@ -93,5 +96,102 @@ describe("httpAgent happy path", () => {
     await agent.run({}, scriptedCtx([0, 1]));
     expect(seenAuth).toBe("Bearer fake-token-value-123");
     delete process.env.TEST_AGENT_TOKEN;
+  });
+});
+
+describe("httpAgent retry", () => {
+  it("retries a transient network error and then succeeds", async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      calls++;
+      if (calls === 1) throw new TypeError("network down");
+      return jsonResponse({ output: "ok", trace: [] });
+    });
+    const agent = httpAgent({
+      name: "x",
+      url: "http://localhost:4000/run",
+      allowlist: ["localhost"],
+      retries: 2,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleepImpl: noSleep,
+    });
+    const result = await agent.run({}, scriptedCtx([0, 1, 2, 3]));
+    expect(result.output).toBe("ok");
+    expect(calls).toBe(2);
+  });
+
+  it("retries a 5xx and then succeeds", async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      calls++;
+      return calls === 1 ? new Response("err", { status: 503 }) : jsonResponse({ output: "ok", trace: [] });
+    });
+    const agent = httpAgent({
+      name: "x",
+      url: "http://localhost:4000/run",
+      allowlist: ["localhost"],
+      retries: 1,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleepImpl: noSleep,
+    });
+    const result = await agent.run({}, scriptedCtx([0, 1, 2, 3]));
+    expect(result.output).toBe("ok");
+    expect(calls).toBe(2);
+  });
+
+  it("does not retry a 4xx client error", async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      calls++;
+      return new Response("bad", { status: 400 });
+    });
+    const agent = httpAgent({
+      name: "x",
+      url: "http://localhost:4000/run",
+      allowlist: ["localhost"],
+      retries: 3,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleepImpl: noSleep,
+    });
+    await expect(agent.run({}, scriptedCtx([0, 1]))).rejects.toBeInstanceOf(HttpStatusError);
+    // a 4xx is deterministic, so it is attempted exactly once
+    expect(calls).toBe(1);
+  });
+
+  it("does not retry a redirect even with retries enabled", async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      calls++;
+      return new Response(null, { status: 302 });
+    });
+    const agent = httpAgent({
+      name: "x",
+      url: "http://localhost:4000/run",
+      allowlist: ["localhost"],
+      retries: 3,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleepImpl: noSleep,
+    });
+    await expect(agent.run({}, scriptedCtx([0, 1]))).rejects.toThrow(UnexpectedRedirectError);
+    expect(calls).toBe(1);
+  });
+
+  it("gives up after exhausting retries", async () => {
+    let calls = 0;
+    const fetchImpl = vi.fn(async () => {
+      calls++;
+      throw new TypeError("network down");
+    });
+    const agent = httpAgent({
+      name: "x",
+      url: "http://localhost:4000/run",
+      allowlist: ["localhost"],
+      retries: 2,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      sleepImpl: noSleep,
+    });
+    await expect(agent.run({}, scriptedCtx([0, 1]))).rejects.toThrow("network down");
+    // initial attempt plus two retries
+    expect(calls).toBe(3);
   });
 });
