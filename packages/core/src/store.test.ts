@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Store, type NewRun, type NewCaseResult } from "./store.js";
+import { Store, flipCount, type NewRun, type NewCaseResult } from "./store.js";
 
 const tmpFiles: string[] = [];
 async function tmpDb(): Promise<string> {
@@ -120,6 +120,24 @@ describe("Store", () => {
     store.saveRun(...Object.values(makeRun("run-2", 1)) as [NewRun, NewCaseResult[]]);
     const trend = store.trends("booking");
     expect(trend.map((t) => t.runUid)).toEqual(["run-1", "run-2"]);
+    store.close();
+  });
+
+  it("flipCount counts pass/fail status changes", () => {
+    expect(flipCount([])).toBe(0);
+    expect(flipCount([true, true, true])).toBe(0);
+    // pass,pass,pass,fail,fail,pass,pass -> two flips (regression then recovery)
+    expect(flipCount([true, true, true, false, false, true, true])).toBe(2);
+    // alternating is maximally flaky
+    expect(flipCount([true, false, true, false])).toBe(3);
+  });
+
+  it("lists distinct case ids across a suite's runs", async () => {
+    const store = new Store(await tmpDb());
+    store.saveRun(...(Object.values(makeRun("run-1", 2)) as [NewRun, NewCaseResult[]]));
+    store.saveRun(...(Object.values(makeRun("run-2", 1)) as [NewRun, NewCaseResult[]]));
+    expect(store.caseIds("booking")).toEqual(["edge", "happy"]);
+    expect(store.caseIds("other-suite")).toEqual([]);
     store.close();
   });
 

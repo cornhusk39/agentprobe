@@ -13,6 +13,7 @@ import {
   Store,
   snapshotFromReport,
   diffRuns,
+  flipCount,
   type CaseHistoryPoint,
   type RegressionReport,
   type StoredCaseResult,
@@ -162,6 +163,29 @@ export function runRefs(): RunRef[] {
 // view.
 export function caseHistory(caseId: string): CaseHistoryPoint[] {
   return db().caseHistory(activeSuite(), caseId);
+}
+
+export interface FlakyCase {
+  caseId: string;
+  flips: number;
+  runs: number;
+  lastPassed: boolean;
+}
+
+// Cases whose pass/fail status changed at least once across the run history,
+// most-flips first. A case that oscillates is unreliable in a way a single run
+// never shows.
+export function flakyCases(): FlakyCase[] {
+  const suite = activeSuite();
+  const flaky: FlakyCase[] = [];
+  for (const caseId of db().caseIds(suite)) {
+    const history = db().caseHistory(suite, caseId);
+    const flips = flipCount(history.map((h) => h.passed));
+    if (flips > 0) {
+      flaky.push({ caseId, flips, runs: history.length, lastPassed: history[history.length - 1]?.passed ?? false });
+    }
+  }
+  return flaky.sort((a, b) => b.flips - a.flips);
 }
 
 // Diff any two runs against each other, base versus candidate. Returns null if

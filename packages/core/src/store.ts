@@ -181,6 +181,18 @@ export interface TrendPoint {
   avgJudgeScore: number | null;
 }
 
+// Count pass/fail flips in a chronological sequence of results: how many times
+// the status changed between consecutive runs. Zero means stable; a high count
+// means the case is flaky, oscillating rather than steadily passing or failing.
+// Pure and exported so it can be unit tested and reused by the dashboard.
+export function flipCount(passes: boolean[]): number {
+  let flips = 0;
+  for (let i = 1; i < passes.length; i++) {
+    if (passes[i] !== passes[i - 1]) flips++;
+  }
+  return flips;
+}
+
 // One case's result in one run, for the per-case history view.
 export interface CaseHistoryPoint {
   runId: number;
@@ -335,6 +347,18 @@ export class Store {
         avgJudgeScore: r.avg_judge_score,
       }))
       .reverse();
+  }
+
+  // Distinct case ids seen across this suite's runs. Used to enumerate cases for
+  // the flaky-case scan, including any that have since been removed from the
+  // authored suite but still have history.
+  caseIds(suite: string): string[] {
+    const rows = this.db
+      .prepare(
+        "SELECT DISTINCT cr.case_id FROM case_results cr JOIN runs r ON r.id = cr.run_id WHERE r.suite = ? ORDER BY cr.case_id",
+      )
+      .all(suite) as { case_id: string }[];
+    return rows.map((r) => r.case_id);
   }
 
   // One case's result across runs, oldest to newest. Lets the dashboard show how

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listRuns, getBaseline, trendSeries } from "../lib/db";
+import { listRuns, getBaseline, trendSeries, flakyCases } from "../lib/db";
 import { LineChart } from "../components/LineChart";
 import { RunControls } from "../components/RunControls";
 
@@ -15,6 +15,7 @@ export default function HomePage() {
   const runs = listRuns();
   const baseline = getBaseline();
   const t = trendSeries();
+  const flaky = flakyCases();
 
   return (
     <>
@@ -59,6 +60,45 @@ export default function HomePage() {
         {baseline ? ` (run #${baseline.id})` : ""}. The dip is a bad deploy where the booking flow
         stopped calling its tool; the recovery is the fix.
       </p>
+
+      {flaky.length > 0 ? (
+        <>
+          <h2>Flaky cases</h2>
+          <div className="panel" style={{ padding: 0 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Case</th>
+                  <th>Status flips</th>
+                  <th>Runs</th>
+                  <th>Current</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flaky.map((f) => (
+                  <tr key={f.caseId}>
+                    <td>
+                      <Link href={`/cases/${encodeURIComponent(f.caseId)}`}>{f.caseId}</Link>
+                    </td>
+                    <td>
+                      <span className="pill warn">{f.flips}</span>
+                    </td>
+                    <td className="meta">{f.runs}</td>
+                    <td>
+                      <span className={`pill ${f.lastPassed ? "pass" : "fail"}`}>
+                        {f.lastPassed ? "pass" : "fail"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="meta" style={{ marginTop: 8 }}>
+            These cases changed pass/fail status across runs rather than staying steady.
+          </p>
+        </>
+      ) : null}
 
       <h2>Runs</h2>
       <div className="panel" style={{ padding: 0 }}>
