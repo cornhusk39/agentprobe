@@ -181,6 +181,17 @@ export interface TrendPoint {
   avgJudgeScore: number | null;
 }
 
+// One case's result in one run, for the per-case history view.
+export interface CaseHistoryPoint {
+  runId: number;
+  runUid: string;
+  createdAt: string;
+  passed: boolean;
+  judgeScore: number | null;
+  costUsd: number;
+  latencyMs: number;
+}
+
 export class Store {
   private db: DB;
 
@@ -322,6 +333,40 @@ export class Store {
         totalCostUsd: r.total_cost_usd,
         totalLatencyMs: r.total_latency_ms,
         avgJudgeScore: r.avg_judge_score,
+      }))
+      .reverse();
+  }
+
+  // One case's result across runs, oldest to newest. Lets the dashboard show how
+  // a single case has trended, which a run-level average can hide: one slowly
+  // degrading case is invisible until it tips the whole suite.
+  caseHistory(suite: string, caseId: string, limit = 50): CaseHistoryPoint[] {
+    const rows = this.db
+      .prepare(
+        `SELECT r.id AS run_id, r.run_uid, r.created_at, cr.passed, cr.judge_score, cr.cost_usd, cr.latency_ms
+         FROM case_results cr
+         JOIN runs r ON r.id = cr.run_id
+         WHERE r.suite = ? AND cr.case_id = ?
+         ORDER BY r.id DESC LIMIT ?`,
+      )
+      .all(suite, caseId, limit) as Array<{
+      run_id: number;
+      run_uid: string;
+      created_at: string;
+      passed: number;
+      judge_score: number | null;
+      cost_usd: number;
+      latency_ms: number;
+    }>;
+    return rows
+      .map((r) => ({
+        runId: r.run_id,
+        runUid: r.run_uid,
+        createdAt: r.created_at,
+        passed: r.passed === 1,
+        judgeScore: r.judge_score,
+        costUsd: r.cost_usd,
+        latencyMs: r.latency_ms,
       }))
       .reverse();
   }

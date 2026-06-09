@@ -21,7 +21,8 @@ function CaseBlock({ c, classification }: { c: SeedCase; classification?: CaseCl
     <div className="case">
       <div className="head">
         <span className="title">
-          {c.caseId} {classPill(classification)}
+          <Link href={`/cases/${encodeURIComponent(c.caseId)}`}>{c.caseId}</Link>{" "}
+          {classPill(classification)}
         </span>
         <span className={`pill ${allPass ? "pass" : "fail"}`}>{allPass ? "pass" : "fail"}</span>
       </div>

@@ -13,6 +13,7 @@ import {
   Store,
   snapshotFromReport,
   diffRuns,
+  type CaseHistoryPoint,
   type RegressionReport,
   type StoredCaseResult,
   type StoredRun,
@@ -155,6 +156,12 @@ export function runRefs(): RunRef[] {
       casesPassed: r.casesPassed,
       casesTotal: r.casesTotal,
     }));
+}
+
+// One case's result across every run, oldest to newest, for the case history
+// view.
+export function caseHistory(caseId: string): CaseHistoryPoint[] {
+  return db().caseHistory(activeSuite(), caseId);
 }
 
 // Diff any two runs against each other, base versus candidate. Returns null if

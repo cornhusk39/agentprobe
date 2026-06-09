@@ -122,4 +122,22 @@ describe("Store", () => {
     expect(trend.map((t) => t.runUid)).toEqual(["run-1", "run-2"]);
     store.close();
   });
+
+  it("returns one case's history across runs, oldest to newest", async () => {
+    const store = new Store(await tmpDb());
+    store.saveRun(...(Object.values(makeRun("run-1", 2)) as [NewRun, NewCaseResult[]]));
+    store.saveRun(...(Object.values(makeRun("run-2", 1)) as [NewRun, NewCaseResult[]]));
+
+    // The "edge" case passes in run-1 (passed=2) and fails in run-2 (passed=1).
+    const edge = store.caseHistory("booking", "edge");
+    expect(edge.map((p) => p.runUid)).toEqual(["run-1", "run-2"]);
+    expect(edge.map((p) => p.passed)).toEqual([true, false]);
+    expect(edge[0]!.judgeScore).toBe(0.74);
+
+    // The "happy" case is present in both runs.
+    expect(store.caseHistory("booking", "happy")).toHaveLength(2);
+    // An unknown case has no history.
+    expect(store.caseHistory("booking", "nope")).toHaveLength(0);
+    store.close();
+  });
 });
