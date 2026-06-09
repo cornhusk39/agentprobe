@@ -266,3 +266,46 @@ export function diffRuns(
     summary: { regressedCases, improvedCases, newCases, removedCases, newFailingCases },
   };
 }
+
+// Render a regression report as Markdown, for a CI step summary or a PR comment.
+// Pure and deterministic so it can be tested and so the CLI can drop it into
+// $GITHUB_STEP_SUMMARY unchanged. Only non-passing cases are tabled, since a
+// wall of green rows buries the signal; a clean report says so in one line.
+export function regressionMarkdown(report: RegressionReport): string {
+  const fmtSigned = (n: number, unit: string, digits: number): string => {
+    const s = n > 0 ? "+" : "";
+    return `${s}${n.toFixed(digits)}${unit}`;
+  };
+
+  const lines: string[] = [];
+  lines.push(`## AgentProbe regression check`);
+  lines.push("");
+  lines.push(
+    `Suite \`${report.suite}\` — baseline \`${report.baselineRunUid}\` vs candidate \`${report.candidateRunUid}\`.`,
+  );
+  lines.push("");
+  lines.push(
+    report.regressed ? `❌ **FAIL** — ${report.reasons.join("; ")}` : `✅ **PASS** — no regressions against the baseline.`,
+  );
+
+  const s = report.summary;
+  lines.push("");
+  lines.push(
+    `Regressed ${s.regressedCases} · Improved ${s.improvedCases} · New ${s.newCases} · Removed ${s.removedCases}`,
+  );
+
+  const notable = report.cases.filter((c) => c.classification !== "pass");
+  if (notable.length > 0) {
+    lines.push("");
+    lines.push(`| Case | Change | Judge Δ | Cost Δ | Latency Δ | Why |`);
+    lines.push(`| --- | --- | --- | --- | --- | --- |`);
+    for (const c of notable) {
+      const judge = c.deltas.judgeScore === null ? "-" : fmtSigned(c.deltas.judgeScore, "", 2);
+      const cost = fmtSigned(c.deltas.costUsd, "", 4);
+      const latency = fmtSigned(Math.round(c.deltas.latencyMs), "ms", 0);
+      lines.push(`| ${c.caseId} | ${c.classification} | ${judge} | ${cost} | ${latency} | ${c.reasons.join(", ")} |`);
+    }
+  }
+  lines.push("");
+  return lines.join("\n");
+}

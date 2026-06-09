@@ -35,6 +35,8 @@ jobs:
 
       # The gate. `check` replays the cassettes, scores them with assertions and
       # the cached judge, diffs against baseline.json, and exits non-zero on a
-      # regression, which fails the job.
+      # regression, which fails the job. Because GitHub sets GITHUB_STEP_SUMMARY,
+      # check also writes a Markdown regression report to the job summary, so a
+      # failure is readable in the PR with no extra wiring.
       - name: Regression gate (reference agent)
         run: pnpm --filter @agentprobe/example-reference-agent check

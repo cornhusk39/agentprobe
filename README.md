@@ -198,6 +198,11 @@ runs the regression gate against the reference agent on every push and pull
 request. It runs entirely offline: replay needs no network and the judge reads
 cached verdicts, so no API key is ever required in CI.
 
+`check` writes a Markdown regression report to the GitHub job summary
+automatically (it appends to `$GITHUB_STEP_SUMMARY` when that is set), so a
+failure is readable right in the run. Pass `--json` to emit the machine-readable
+regression report instead, for other tooling.
+
 ## Security posture
 
 This repo is built to be made public by a human, later. From commit one: secrets

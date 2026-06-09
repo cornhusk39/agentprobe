@@ -4,10 +4,11 @@
 // set an exit code. All the real logic lives in run.ts and in core.
 
 import path from "node:path";
+import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import type { AgentProbeConfig } from "./config.js";
 import { recordCommand, replayCommand, baselineCommand, checkCommand } from "./run.js";
-import type { RunReport } from "@agentprobe/core";
+import { regressionMarkdown, type RunReport } from "@agentprobe/core";
 
 const USAGE = `agentprobe <command> [--config <path>]
 
@@ -22,27 +23,34 @@ Commands:
 
 Options:
   --config <path>   Path to the config module (default: ./agentprobe.config.ts)
+  --json            For check: print the regression report as JSON instead of
+                    text. When $GITHUB_STEP_SUMMARY is set, check also writes a
+                    Markdown summary there automatically.
 `;
 
 interface ParsedArgs {
   command: string | undefined;
   configPath: string;
+  json: boolean;
 }
 
 function parseArgs(argv: string[]): ParsedArgs {
   let command: string | undefined;
   let configPath = "agentprobe.config.ts";
+  let json = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--config") {
       const next = argv[++i];
       if (!next) throw new Error("--config needs a path");
       configPath = next;
+    } else if (arg === "--json") {
+      json = true;
     } else if (!command && arg && !arg.startsWith("-")) {
       command = arg;
     }
   }
-  return { command, configPath };
+  return { command, configPath, json };
 }
 
 async function loadConfig(configPath: string): Promise<AgentProbeConfig> {
@@ -75,7 +83,7 @@ function printRunSummary(report: RunReport): void {
 }
 
 async function main(): Promise<number> {
-  const { command, configPath } = parseArgs(process.argv.slice(2));
+  const { command, configPath, json } = parseArgs(process.argv.slice(2));
   if (!command || command === "help" || command === "--help") {
     console.log(USAGE);
     return command ? 0 : 1;
@@ -103,6 +111,21 @@ async function main(): Promise<number> {
     }
     case "check": {
       const { report, regression } = await checkCommand(config);
+
+      // When CI provides a step-summary file, drop a Markdown report into it so
+      // a regression shows up readably in the pull request, no extra wiring.
+      const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+      if (summaryFile) {
+        appendFileSync(summaryFile, regressionMarkdown(regression));
+      }
+
+      // --json emits the machine-readable report for other tools to consume.
+      // The exit code still encodes pass or fail.
+      if (json) {
+        console.log(JSON.stringify(regression, null, 2));
+        return regression.regressed ? 1 : 0;
+      }
+
       printRunSummary(report);
       console.log(`\nregression check against baseline ${regression.baselineRunUid}:`);
       for (const c of regression.cases) {

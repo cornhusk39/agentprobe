@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { diffRuns, DEFAULT_THRESHOLDS, type RunSnapshot } from "./regression.js";
+import { diffRuns, regressionMarkdown, DEFAULT_THRESHOLDS, type RunSnapshot } from "./regression.js";
 
 function snapshot(over: Partial<RunSnapshot> & { cases: RunSnapshot["cases"] }): RunSnapshot {
   const cases = over.cases;
@@ -87,6 +87,28 @@ describe("diffRuns", () => {
       ],
     });
     expect(diffRuns(baseline, withNewPassing).regressed).toBe(false);
+  });
+
+  it("renders a markdown report with a FAIL header and a row per notable case", () => {
+    const candidate = snapshot({
+      runUid: "candidate",
+      cases: [
+        { caseId: "happy", passed: false, judgeScore: 0.4, costUsd: 0.01, latencyMs: 700, steps: 3 },
+        { caseId: "edge", passed: true, judgeScore: 0.8, costUsd: 0.012, latencyMs: 800, steps: 4 },
+      ],
+    });
+    const md = regressionMarkdown(diffRuns(baseline, candidate));
+    expect(md).toContain("## AgentProbe regression check");
+    expect(md).toContain("**FAIL**");
+    expect(md).toContain("| happy | regress |");
+    // the passing case is not tabled
+    expect(md).not.toContain("| edge |");
+  });
+
+  it("renders a clean PASS report with no case table", () => {
+    const md = regressionMarkdown(diffRuns(baseline, { ...baseline, runUid: "candidate" }));
+    expect(md).toContain("**PASS**");
+    expect(md).not.toContain("| Case |");
   });
 
   it("does not fail on improvements", () => {
