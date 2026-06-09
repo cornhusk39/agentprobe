@@ -15,9 +15,17 @@ export default function SuitePage() {
       </p>
       <div className="toolbar">
         <h2 style={{ marginTop: 8 }}>Suite: {activeSuite()}</h2>
-        <Link className="btn small" href="/suite/new">
-          + Add case
-        </Link>
+        <span className="actions-inline">
+          <a className="btn small ghost" href="/api/suite/export">
+            Export
+          </a>
+          <Link className="btn small ghost" href="/suite/import">
+            Import
+          </Link>
+          <Link className="btn small" href="/suite/new">
+            + Add case
+          </Link>
+        </span>
       </div>
 
       <RunControls />

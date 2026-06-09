@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { markBaselineById, deleteRunById } from "../lib/db";
 import { runActiveSuite } from "../lib/engine";
-import { saveCaseFromJson, deleteCase } from "../lib/suite";
+import { saveCaseFromJson, deleteCase, importSuiteJson } from "../lib/suite";
 
 export interface ActionResult {
   ok: boolean;
@@ -69,4 +69,14 @@ export async function deleteCaseAction(formData: FormData): Promise<void> {
     deleteCase(caseId);
     revalidatePath("/suite");
   }
+}
+
+// Import a suite pasted as JSON. On success it redirects to the suite page; on a
+// validation error it returns the message for the form.
+export async function importSuiteAction(_prev: SaveState | null, formData: FormData): Promise<SaveState> {
+  const json = String(formData.get("suiteJson") ?? "");
+  const result = importSuiteJson(json);
+  if (!result.ok) return { error: result.error };
+  revalidatePath("/suite");
+  redirect("/suite");
 }

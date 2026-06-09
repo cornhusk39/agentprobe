@@ -67,3 +67,35 @@ function formatValidationError(err: unknown): string {
 export function deleteCase(caseId: string): void {
   ss().deleteCase(activeSuite(), caseId);
 }
+
+// Serialize the authored suite to portable JSON: the suite name and its cases.
+// This round-trips through importSuiteJson because authored cases use only the
+// serializable assertion kinds.
+export function exportSuiteJson(): string {
+  return JSON.stringify({ name: activeSuite(), cases: listCases() }, null, 2);
+}
+
+// Import a suite from JSON, upserting each case (overwriting matching ids,
+// adding new ones). Each case is validated on write, so a malformed import is
+// rejected before anything is saved. Non-destructive: cases not in the import
+// are left in place.
+export function importSuiteJson(json: string): SaveResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch (err) {
+    return { ok: false, error: `Not valid JSON: ${(err as Error).message}` };
+  }
+  const cases = (parsed as { cases?: unknown }).cases;
+  if (!Array.isArray(cases)) {
+    return { ok: false, error: 'Expected an object with a "cases" array.' };
+  }
+  try {
+    const suite = activeSuite();
+    ss().upsertSuite(suite, new Date().toISOString());
+    for (const c of cases) ss().upsertCase(suite, c as Case);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: formatValidationError(err) };
+  }
+}

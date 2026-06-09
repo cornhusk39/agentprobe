@@ -59,6 +59,26 @@ describe("SuiteStore", () => {
     store.close();
   });
 
+  it("round-trips a suite through JSON export and import", async () => {
+    const src = new SuiteStore(await tmpDb());
+    src.upsertSuite("booking", "2026-06-08T00:00:00.000Z");
+    src.upsertCase("booking", sampleCase);
+    src.upsertCase("booking", { id: "lists", input: { intent: "availability" }, assertions: [] });
+
+    // Export: serialize the materialized suite to JSON, as the dashboard does.
+    const json = JSON.stringify(src.materialize("booking"));
+    src.close();
+
+    // Import into a fresh store by upserting each case from the parsed JSON.
+    const dst = new SuiteStore(await tmpDb());
+    const parsed = JSON.parse(json) as { name: string; cases: Case[] };
+    dst.upsertSuite(parsed.name, "2026-06-08T00:00:00.000Z");
+    for (const c of parsed.cases) dst.upsertCase(parsed.name, c);
+
+    expect(dst.materialize("booking")).toEqual(JSON.parse(json));
+    dst.close();
+  });
+
   it("rejects a case with an invalid assertion on write", async () => {
     const store = new SuiteStore(await tmpDb());
     store.upsertSuite("booking", "2026-06-08T00:00:00.000Z");
