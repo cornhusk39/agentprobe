@@ -4,7 +4,7 @@
 // arguments, a malformed output, and silent cost, latency, or step blowups.
 
 import { z } from "zod";
-import { toolCalls, type AgentRunResult, type ToolCall } from "./types.js";
+import { toolCalls, toolNames, type AgentRunResult, type ToolCall } from "./types.js";
 
 // A Zod schema used by the output-schema assertion. It is a real schema object,
 // so it does not survive JSON export; that assertion is TS-suite only by design.
@@ -30,6 +30,10 @@ export const assertionSchema = z.discriminatedUnion("kind", [
     op: z.enum(["exactly", "at-least", "at-most"]).default("at-most"),
     count: z.number().int().nonnegative(),
   }),
+  // The named tools appear in this relative order in the trace, other calls in
+  // between allowed. Order is its own correctness property: booking before
+  // checking availability is wrong even when both tools fire.
+  z.object({ kind: z.literal("tool-call-order"), tools: z.array(z.string()).min(2) }),
   // A call to the named tool has arguments matching `args`. "subset" checks
   // that each given key matches; "exact" requires the whole arg object to match.
   z.object({
@@ -147,6 +151,25 @@ function evaluateOne(result: AgentRunResult, assertion: Assertion): AssertionRes
         observed: n,
         budget: assertion.count,
         message: `tool "${assertion.tool}" called ${n} time(s), expected ${op} ${assertion.count}`,
+      };
+    }
+    case "tool-call-order": {
+      // The expected tools must appear as a subsequence of the actual call
+      // names: each next expected tool found at or after the previous match.
+      const names = toolNames(result.trace);
+      let i = 0;
+      for (const name of names) {
+        if (i < assertion.tools.length && name === assertion.tools[i]) i++;
+      }
+      const pass = i === assertion.tools.length;
+      const order = assertion.tools.join(" -> ");
+      return {
+        kind: assertion.kind,
+        label: order,
+        pass,
+        message: pass
+          ? `tools were called in order: ${order}`
+          : `expected tools in order (${order}) but the trace did not contain that sequence`,
       };
     }
     case "tool-args": {

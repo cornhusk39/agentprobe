@@ -117,6 +117,7 @@ const AUTHORED_CASES: Case[] = [
     assertions: [
       { kind: "tool-called", tool: "crm_upsert_customer" },
       { kind: "tool-called", tool: "create_booking" },
+      { kind: "tool-call-order", tools: ["crm_upsert_customer", "check_availability", "create_booking"] },
       { kind: "tool-args", tool: "create_booking", args: { service: "plumbing" }, match: "subset" },
       { kind: "output-field", path: "status", op: "equals", value: "booked" },
       { kind: "output-field", path: "confirmationId", op: "exists" },

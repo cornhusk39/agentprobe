@@ -50,6 +50,24 @@ describe("deterministic assertions", () => {
     expect(atLeast[0]!.pass).toBe(false);
   });
 
+  it("tool-call-order checks the relative order of tool calls", () => {
+    // The trace calls check_availability then book_slot.
+    const inOrder = evaluateAssertions(result, [
+      { kind: "tool-call-order", tools: ["check_availability", "book_slot"] },
+    ]);
+    expect(inOrder[0]!.pass).toBe(true);
+
+    const reversed = evaluateAssertions(result, [
+      { kind: "tool-call-order", tools: ["book_slot", "check_availability"] },
+    ]);
+    expect(reversed[0]!.pass).toBe(false);
+
+    const missing = evaluateAssertions(result, [
+      { kind: "tool-call-order", tools: ["check_availability", "cancel_booking"] },
+    ]);
+    expect(missing[0]!.pass).toBe(false);
+  });
+
   it("tool-not-called passes when the tool is absent and fails when it appears", () => {
     // book_slot was called in the trace, cancel_booking was not.
     const absent = evaluateAssertions(result, [{ kind: "tool-not-called", tool: "cancel_booking" }]);

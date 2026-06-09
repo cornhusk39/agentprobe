@@ -22,6 +22,9 @@ export const suite = defineSuite({
       assertions: [
         { kind: "tool-called", tool: "crm_upsert_customer" },
         { kind: "tool-called", tool: "create_booking" },
+        // The booking flow must look up the customer and check availability
+        // before it books, in that order.
+        { kind: "tool-call-order", tools: ["crm_upsert_customer", "check_availability", "create_booking"] },
         { kind: "tool-args", tool: "create_booking", args: { service: "plumbing" }, match: "subset" },
         { kind: "output-schema", schema: z.object({ status: z.literal("booked"), confirmationId: z.string() }) },
         { kind: "cost-budget", maxUsd: 0.02 },
