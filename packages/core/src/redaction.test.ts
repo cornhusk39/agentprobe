@@ -28,6 +28,18 @@ describe("redact", () => {
     expect(input.users[0]!.email).toBe("a@b.com");
   });
 
+  it("redacts digit-run PII even when glued to surrounding text", () => {
+    const { value } = redact({
+      a: "phone:5125550142x",
+      b: "card 1234567890123456789", // 19 digits
+      c: "ssn123-45-6789",
+    });
+    const s = JSON.stringify(value);
+    expect(s).not.toContain("5125550142");
+    expect(s).not.toContain("1234567890123456789");
+    expect(s).not.toContain("123-45-6789");
+  });
+
   it("leaves non-secret data alone", () => {
     const { value, hits } = redact({ city: "Austin", count: 3, ok: true });
     expect(value).toEqual({ city: "Austin", count: 3, ok: true });

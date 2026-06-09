@@ -93,7 +93,9 @@ export function importSuiteJson(json: string): SaveResult {
   try {
     const suite = activeSuite();
     ss().upsertSuite(suite, new Date().toISOString());
-    for (const c of cases) ss().upsertCase(suite, c as Case);
+    // Atomic: every case is validated before any is written, so a malformed
+    // import leaves the existing suite untouched.
+    ss().upsertCases(suite, cases as Case[]);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: formatValidationError(err) };

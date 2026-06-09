@@ -59,6 +59,9 @@ export class SuiteStore {
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
+    // Wait for a contended write lock rather than failing immediately, since the
+    // dashboard and the run engine open separate connections to the same file.
+    this.db.pragma("busy_timeout = 5000");
     this.db.pragma("foreign_keys = ON");
     this.db.exec(SCHEMA);
   }
@@ -121,6 +124,17 @@ export class SuiteStore {
         rubricJson: c.rubric ? JSON.stringify(c.rubric) : null,
         position: pos,
       });
+  }
+
+  // Upsert several cases atomically. Every case is validated up front, so a
+  // single invalid case rejects the whole batch and nothing is written. This is
+  // what an import needs: all-or-nothing, never a half-applied suite.
+  upsertCases(suite: string, cases: Case[]): void {
+    const validated = cases.map((c) => caseSchema.parse(c));
+    const tx = this.db.transaction((items: Case[]) => {
+      for (const c of items) this.upsertCase(suite, c);
+    });
+    tx(validated);
   }
 
   deleteCase(suite: string, caseId: string): void {

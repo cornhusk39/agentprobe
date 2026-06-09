@@ -211,6 +211,10 @@ export class Store {
     this.db = new Database(dbPath);
     // WAL keeps the dashboard's reads from blocking the CLI's writes.
     this.db.pragma("journal_mode = WAL");
+    // Wait for a write lock instead of throwing SQLITE_BUSY immediately, so two
+    // concurrent writers (for example two dashboard actions) serialize rather
+    // than one failing.
+    this.db.pragma("busy_timeout = 5000");
     this.db.pragma("foreign_keys = ON");
     this.db.exec(SCHEMA);
   }

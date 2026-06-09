@@ -44,11 +44,14 @@ export const DEFAULT_RULES: RedactionRule[] = [
   { name: "bearer", pattern: /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}/g },
   // JWTs: three base64url segments separated by dots.
   { name: "jwt", pattern: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g },
-  // PII. Emails, US phone numbers, SSNs, and card-length digit runs.
+  // PII. Emails, US phone numbers, SSNs, and long digit runs (card-length and
+  // beyond). Digit patterns use lookarounds rather than \b so a number glued to
+  // surrounding text (for example "phone:5125550142x") is still caught, and so a
+  // 17 to 19 digit run cannot slip past a 16-digit upper bound.
   { name: "email", pattern: /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g },
-  { name: "ssn", pattern: /\b\d{3}-\d{2}-\d{4}\b/g },
-  { name: "credit-card", pattern: /\b(?:\d[ -]?){13,16}\b/g },
-  { name: "us-phone", pattern: /\b(?:\+?1[ .-]?)?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}\b/g },
+  { name: "ssn", pattern: /(?<!\d)\d{3}-\d{2}-\d{4}(?!\d)/g },
+  { name: "credit-card", pattern: /(?<![\d-])(?:\d[ -]?){13,19}(?![\d-])/g },
+  { name: "us-phone", pattern: /(?<![\d.])(?:\+?1[ .-]?)?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}(?!\d)/g },
 ];
 
 // The hard backstop. After redaction, none of these may remain. This set is a

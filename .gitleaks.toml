@@ -7,10 +7,12 @@ useDefault = true
 
 [allowlist]
 description = "Allow committed example placeholders and synthetic demo data"
+# Only the example env file is allowlisted by path. Test files are deliberately
+# NOT path-allowlisted: a real key pasted into a test should still be caught. The
+# fake-token regex below covers the obviously-synthetic tokens tests use.
 paths = [
   '''\.env\.example$''',
-  '''.*\.test\.ts$''',
-  '''examples/cassettes/.*\.json$''',
+  '''examples/reference-agent/cassettes/.*\.json$''',
 ]
 regexes = [
   # placeholder keys in the example env file

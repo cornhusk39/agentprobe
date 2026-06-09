@@ -79,6 +79,25 @@ describe("SuiteStore", () => {
     dst.close();
   });
 
+  it("upsertCases is atomic: one invalid case rejects the whole batch", async () => {
+    const store = new SuiteStore(await tmpDb());
+    store.upsertSuite("booking", "2026-06-08T00:00:00.000Z");
+    store.upsertCase("booking", sampleCase);
+
+    const before = store.getCases("booking").length;
+    expect(() =>
+      store.upsertCases("booking", [
+        { id: "good-1", input: {}, assertions: [] },
+        // @ts-expect-error invalid assertion kind on purpose
+        { id: "bad", input: {}, assertions: [{ kind: "nope" }] },
+      ] as never),
+    ).toThrow();
+    // Nothing from the batch was written: good-1 must not exist.
+    expect(store.getCase("booking", "good-1")).toBeUndefined();
+    expect(store.getCases("booking").length).toBe(before);
+    store.close();
+  });
+
   it("rejects a case with an invalid assertion on write", async () => {
     const store = new SuiteStore(await tmpDb());
     store.upsertSuite("booking", "2026-06-08T00:00:00.000Z");

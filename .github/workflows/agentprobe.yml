@@ -10,6 +10,19 @@ on:
   pull_request:
 
 jobs:
+  # Server-side secret scan, so a leaked key is caught even if a contributor
+  # bypassed the local pre-commit hook. Full history is scanned (fetch-depth 0).
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_CONFIG: .gitleaks.toml
+
   regression-gate:
     runs-on: ubuntu-latest
     steps:
