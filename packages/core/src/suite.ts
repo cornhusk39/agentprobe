@@ -4,6 +4,7 @@
 // exported for portability; the one exception is the output-schema assertion,
 // which holds a live Zod schema and is therefore TS-only.
 
+import { promises as fs } from "node:fs";
 import { z } from "zod";
 import { assertionSchema } from "./assertions.js";
 
@@ -32,7 +33,10 @@ export type Case = z.infer<typeof caseSchema>;
 
 export const suiteSchema = z.object({
   name: z.string().min(1),
-  cases: z.array(caseSchema).min(1),
+  // A suite may be transiently empty while it is being authored in the
+  // dashboard (delete every case, then add). Running an empty suite is a no-op,
+  // and the run paths guard against it, so the schema does not force min(1).
+  cases: z.array(caseSchema),
 });
 export type Suite = z.infer<typeof suiteSchema>;
 
@@ -63,4 +67,21 @@ export function defineSuite(suite: Suite): Suite {
     fileNames.set(safe, c.id);
   }
   return parsed;
+}
+
+// Load a suite from a committed JSON file and validate it. This is the single
+// source of truth: the CLI and CI read the suite from here, and the dashboard
+// edits the same file, so there is no second copy to drift. defineSuite is
+// reused so the same duplicate-id and filename-collision checks apply.
+export async function loadSuiteFile(file: string): Promise<Suite> {
+  const raw = await fs.readFile(file, "utf8");
+  return defineSuite(JSON.parse(raw));
+}
+
+// Write a suite back to its JSON file, validating first so a malformed suite is
+// never persisted. Pretty-printed and newline-terminated so it diffs cleanly in
+// review, which matters because it is a committed artifact.
+export async function saveSuiteFile(file: string, suite: Suite): Promise<void> {
+  const parsed = defineSuite(suite);
+  await fs.writeFile(file, JSON.stringify(parsed, null, 2) + "\n", "utf8");
 }

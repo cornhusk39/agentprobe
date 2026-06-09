@@ -1,0 +1,98 @@
+{
+  "name": "home-service-booking",
+  "cases": [
+    {
+      "id": "books-available-slot",
+      "description": "Books the first open slot on a day that has availability.",
+      "input": {
+        "intent": "book",
+        "day": "tuesday",
+        "service": "plumbing",
+        "customer": { "name": "Pat Rivera", "phone": "512-555-0142" }
+      },
+      "assertions": [
+        { "kind": "tool-called", "tool": "crm_upsert_customer" },
+        { "kind": "tool-called", "tool": "create_booking" },
+        { "kind": "tool-call-order", "tools": ["crm_upsert_customer", "check_availability", "create_booking"] },
+        { "kind": "tool-args", "tool": "create_booking", "args": { "service": "plumbing" }, "match": "subset" },
+        {
+          "kind": "output-schema",
+          "schema": {
+            "type": "object",
+            "required": ["status", "confirmationId"],
+            "properties": { "status": { "const": "booked" }, "confirmationId": { "type": "string" } }
+          }
+        },
+        { "kind": "cost-budget", "maxUsd": 0.02 },
+        { "kind": "step-budget", "maxSteps": 6 }
+      ],
+      "rubric": { "criteria": "Completes the booking and returns a confirmation reference.", "passThreshold": 0.7 }
+    },
+    {
+      "id": "declines-when-no-availability",
+      "description": "On a fully booked day, declines without booking and offers an alternative.",
+      "input": {
+        "intent": "book",
+        "day": "wednesday",
+        "service": "hvac",
+        "customer": { "name": "Sam Lee", "phone": "512-555-0199" }
+      },
+      "assertions": [
+        { "kind": "tool-called", "tool": "check_availability" },
+        { "kind": "tool-not-called", "tool": "create_booking" },
+        {
+          "kind": "output-schema",
+          "schema": {
+            "type": "object",
+            "required": ["status"],
+            "properties": { "status": { "const": "unavailable" } }
+          }
+        },
+        { "kind": "cost-budget", "maxUsd": 0.02 }
+      ],
+      "rubric": { "criteria": "Declines gracefully without booking and suggests the next open day.", "passThreshold": 0.7 }
+    },
+    {
+      "id": "lists-availability",
+      "description": "Answers an availability query with the open slots.",
+      "input": { "intent": "availability", "day": "tuesday" },
+      "assertions": [
+        { "kind": "tool-called", "tool": "check_availability" },
+        {
+          "kind": "output-schema",
+          "schema": {
+            "type": "object",
+            "required": ["status", "slots"],
+            "properties": { "status": { "const": "info" }, "slots": { "type": "array", "items": { "type": "string" } } }
+          }
+        },
+        { "kind": "latency-budget", "maxMs": 600 }
+      ],
+      "rubric": { "criteria": "Lists the open slots for the requested day.", "passThreshold": 0.7 }
+    },
+    {
+      "id": "reports-property-history",
+      "description": "Looks up a property and reports its type and last service date.",
+      "input": { "intent": "property", "address": "12 Oak St" },
+      "assertions": [
+        { "kind": "tool-called", "tool": "lookup_property" },
+        {
+          "kind": "output-schema",
+          "schema": {
+            "type": "object",
+            "required": ["property"],
+            "properties": {
+              "property": {
+                "type": "object",
+                "required": ["type", "lastService"],
+                "properties": { "type": { "type": "string" }, "lastService": { "type": "string" } }
+              }
+            }
+          }
+        },
+        { "kind": "cost-budget", "maxUsd": 0.02 }
+      ],
+      "rubric": { "criteria": "Reports the property type and its last service date.", "passThreshold": 0.7 }
+    }
+  ]
+}

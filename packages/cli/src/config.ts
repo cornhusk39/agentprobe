@@ -3,10 +3,13 @@
 // paths for cassettes, the judge cache, the baseline, and the database, and (for
 // record mode) how to build a live agent and which judge to use.
 
-import type { Agent, Case, Judge, RedactionRule, RegressionThresholds, Suite } from "@agentprobe/core";
+import type { Agent, Case, Judge, RedactionRule, RegressionThresholds } from "@agentprobe/core";
 
 export interface AgentProbeConfig {
-  suite: Suite;
+  // Path to the committed suite JSON. This is the single source of truth: the
+  // CLI and CI read it, and the dashboard edits the same file, so the two never
+  // drift. Author it by hand, with `agentprobe init`, or in the dashboard.
+  suiteFile: string;
   // Directory holding the recorded cassettes, one per case. Committed.
   cassetteDir: string;
   // Committed JSON of cached judge verdicts, so replay and CI need no API key.

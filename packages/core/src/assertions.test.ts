@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { z } from "zod";
 import { evaluateAssertions, assertionsPassed, type Assertion } from "./assertions.js";
 import type { AgentRunResult } from "./types.js";
 
@@ -22,7 +21,7 @@ describe("deterministic assertions", () => {
       { kind: "latency-budget", maxMs: 1000 },
       { kind: "cost-budget", maxUsd: 0.02 },
       { kind: "step-budget", maxSteps: 5 },
-      { kind: "output-schema", schema: z.object({ confirmationId: z.string() }) },
+      { kind: "output-schema", schema: { type: "object", required: ["confirmationId"], properties: { confirmationId: { type: "string" } } } },
     ];
     const results = evaluateAssertions(result, assertions);
     expect(assertionsPassed(results)).toBe(true);
@@ -106,9 +105,21 @@ describe("deterministic assertions", () => {
 
   it("fails output-schema when the shape is wrong", () => {
     const [r] = evaluateAssertions(result, [
-      { kind: "output-schema", schema: z.object({ missing: z.number() }) },
+      { kind: "output-schema", schema: { type: "object", required: ["missing"], properties: { missing: { type: "number" } } } },
     ]);
     expect(r!.pass).toBe(false);
+  });
+
+  it("output-schema validates nested shapes (round-trips as JSON)", () => {
+    const nested = {
+      type: "object",
+      required: ["confirmationId", "when"],
+      properties: { confirmationId: { type: "string", pattern: "^BK-" }, when: { type: "string" } },
+    };
+    const [pass] = evaluateAssertions(result, [{ kind: "output-schema", schema: nested }]);
+    expect(pass!.pass).toBe(true);
+    // The schema is plain JSON, so the assertion survives a serialize round-trip.
+    expect(JSON.parse(JSON.stringify(nested))).toEqual(nested);
   });
 
   it("output-field checks existence and equality on a dot path", () => {

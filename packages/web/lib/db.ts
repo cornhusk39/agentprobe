@@ -9,6 +9,7 @@
 // and computes each run's regression verdict against the baseline on read.
 
 import path from "node:path";
+import { readFileSync } from "node:fs";
 import {
   Store,
   snapshotFromReport,
@@ -20,6 +21,7 @@ import {
   type StoredRun,
 } from "@agentprobe/core";
 import type { CaseClassification, RunRegression, SeedCase, SeedRun } from "./types";
+import { suiteFilePath } from "./paths";
 
 let store: Store | null = null;
 
@@ -94,11 +96,17 @@ function hydrate(run: StoredRun): SeedRun {
   return toRun(run, db().getCaseResults(run.id).map(toCase));
 }
 
-// The single suite the demo tracks. Multi-suite support is a later concern; for
-// now the first suite seen is the active one.
+// The active suite name comes from the committed suite file (the single source
+// of truth). If it is unreadable, fall back to the most recent run's suite, then
+// a default, so the dashboard still renders.
 function activeSuite(): string {
-  const runs = db().listRuns(undefined, 1);
-  return runs[0]?.suite ?? "home-service-booking";
+  try {
+    const name = (JSON.parse(readFileSync(suiteFilePath(), "utf8")) as { name?: string }).name;
+    if (name) return name;
+  } catch {
+    // fall through to the run-derived name
+  }
+  return db().listRuns(undefined, 1)[0]?.suite ?? "home-service-booking";
 }
 
 export function suiteName(): string {

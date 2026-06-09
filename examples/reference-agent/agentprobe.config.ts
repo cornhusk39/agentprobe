@@ -5,7 +5,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "@agentprobe/cli";
-import { suite } from "./src/suite.js";
 import { referenceAgent, regressedAgent } from "./src/agent.js";
 import { demoJudge } from "./src/judge.js";
 
@@ -17,7 +16,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const useRegressed = process.env.AGENTPROBE_DEMO_REGRESSION === "1";
 
 export default defineConfig({
-  suite,
+  suiteFile: path.join(here, "suite.json"),
   cassetteDir: path.join(here, "cassettes"),
   judgeCacheFile: path.join(here, "judge-cache.json"),
   baselineFile: path.join(here, "baseline.json"),
