@@ -170,7 +170,8 @@ pnpm record       # capture redacted cassettes from the live agent (only command
 pnpm replay       # replay offline and print the run summary
 pnpm baseline     # save the current run as the committed baseline
 pnpm check        # replay, diff against the baseline, exit non-zero on regression
-pnpm exec agentprobe runs --config ./agentprobe.config.ts   # print run history
+pnpm exec agentprobe runs --config ./agentprobe.config.ts    # print run history
+pnpm exec agentprobe stats --config ./agentprobe.config.ts   # aggregate suite stats
 
 # the dashboard (interactive: runs and baselines can be driven from the browser):
 pnpm --filter @agentprobe/web seed:db   # seed the local database with run history

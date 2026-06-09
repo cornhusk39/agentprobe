@@ -9,7 +9,14 @@ import os from "node:os";
 import path from "node:path";
 import { defineAgent, defineSuite, scriptedJudge, type Case } from "@agentprobe/core";
 import { defineConfig } from "./config.js";
-import { recordCommand, baselineCommand, checkCommand, listRunsCommand, initCommand } from "./run.js";
+import {
+  recordCommand,
+  baselineCommand,
+  checkCommand,
+  listRunsCommand,
+  statsCommand,
+  initCommand,
+} from "./run.js";
 
 const tmp: string[] = [];
 afterEach(async () => {
@@ -111,6 +118,25 @@ describe("CLI record/baseline/check loop", () => {
 
     // Running again refuses, so a real project is never clobbered.
     await expect(initCommand(dir)).rejects.toThrow(/already exists/);
+  });
+
+  it("computes aggregate suite stats", async () => {
+    const dir = await workspace();
+    const config = configFor(dir, () => goodAgent);
+    // No database yet: empty, zeroed stats rather than an error.
+    expect(statsCommand(config).runs).toBe(0);
+    expect(statsCommand(config).baselineRunUid).toBeNull();
+
+    await recordCommand(config);
+    await baselineCommand(config);
+
+    const stats = statsCommand(config);
+    expect(stats.runs).toBe(2);
+    expect(stats.latestPassRate).toBe(1); // the single case passes
+    expect(stats.flakyCases).toBe(0); // stable across both runs
+    expect(stats.baselineRunUid).not.toBeNull();
+    expect(stats.avgCostUsd).toBeGreaterThan(0);
+    expect(stats.avgJudge).toBeCloseTo(0.9);
   });
 
   it("lists the stored run history newest first", async () => {

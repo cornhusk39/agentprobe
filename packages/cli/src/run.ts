@@ -19,6 +19,7 @@ import {
   diffRuns,
   DEFAULT_THRESHOLDS,
   Store,
+  flipCount,
   type Judge,
   type RunReport,
   type RegressionReport,
@@ -225,6 +226,64 @@ export function listRunsCommand(config: AgentProbeConfig, limit = 20): StoredRun
   if (!store) return [];
   try {
     return store.listRuns(config.suite.name, limit);
+  } finally {
+    store.close();
+  }
+}
+
+export interface SuiteStats {
+  suite: string;
+  runs: number;
+  // Pass rate of the most recent run, 0..1, or null when there are no runs.
+  latestPassRate: number | null;
+  // Mean of the runs' average judge scores, ignoring runs that were not judged.
+  avgJudge: number | null;
+  avgCostUsd: number;
+  avgLatencyMs: number;
+  // Cases whose pass/fail status changed at least once across the history.
+  flakyCases: number;
+  baselineRunUid: string | null;
+}
+
+const mean = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+
+// Aggregate health stats for the suite, for an at-a-glance terminal or CI
+// summary. Empty (zeroed) when nothing has been recorded.
+export function statsCommand(config: AgentProbeConfig): SuiteStats {
+  const empty: SuiteStats = {
+    suite: config.suite.name,
+    runs: 0,
+    latestPassRate: null,
+    avgJudge: null,
+    avgCostUsd: 0,
+    avgLatencyMs: 0,
+    flakyCases: 0,
+    baselineRunUid: null,
+  };
+  if (!config.dbPath || !existsSync(config.dbPath)) return empty;
+  const store = openStore(config);
+  if (!store) return empty;
+  try {
+    const suite = config.suite.name;
+    const runs = store.listRuns(suite, 1000);
+    if (runs.length === 0) return empty;
+
+    const latest = runs[0]!;
+    const judged = runs.filter((r) => r.avgJudgeScore !== null).map((r) => r.avgJudgeScore as number);
+    let flaky = 0;
+    for (const caseId of store.caseIds(suite)) {
+      if (flipCount(store.caseHistory(suite, caseId).map((h) => h.passed)) > 0) flaky++;
+    }
+    return {
+      suite,
+      runs: runs.length,
+      latestPassRate: latest.casesTotal ? latest.casesPassed / latest.casesTotal : null,
+      avgJudge: judged.length ? mean(judged) : null,
+      avgCostUsd: mean(runs.map((r) => r.totalCostUsd)),
+      avgLatencyMs: mean(runs.map((r) => r.totalLatencyMs)),
+      flakyCases: flaky,
+      baselineRunUid: store.getBaseline(suite)?.runUid ?? null,
+    };
   } finally {
     store.close();
   }

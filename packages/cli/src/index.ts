@@ -13,6 +13,7 @@ import {
   baselineCommand,
   checkCommand,
   listRunsCommand,
+  statsCommand,
   initCommand,
 } from "./run.js";
 import { regressionMarkdown, type RunReport } from "@agentprobe/core";
@@ -28,6 +29,7 @@ Commands:
   check      Replay and diff against the baseline. Exits non-zero on a
              regression. This is what CI runs.
   runs       Print the stored run history for the suite, newest first.
+  stats      Print aggregate health stats for the suite.
   init       Scaffold a starter agentprobe.config.ts and suite.ts in the
              current directory.
 
@@ -160,6 +162,23 @@ async function main(): Promise<number> {
         return 1;
       }
       console.log("\nPASS: no regressions against the baseline.");
+      return 0;
+    }
+    case "stats": {
+      const s = statsCommand(config);
+      if (s.runs === 0) {
+        console.log(`No runs recorded yet for suite "${s.suite}".`);
+        return 0;
+      }
+      const pct = (n: number | null) => (n === null ? "-" : `${Math.round(n * 100)}%`);
+      console.log(`stats for suite "${s.suite}":\n`);
+      console.log(`  runs           ${s.runs}`);
+      console.log(`  latest pass    ${pct(s.latestPassRate)}`);
+      console.log(`  avg judge      ${s.avgJudge !== null ? s.avgJudge.toFixed(2) : "-"}`);
+      console.log(`  avg cost       ${fmtMoney(s.avgCostUsd)}`);
+      console.log(`  avg latency    ${Math.round(s.avgLatencyMs)}ms`);
+      console.log(`  flaky cases    ${s.flakyCases}`);
+      console.log(`  baseline       ${s.baselineRunUid ?? "none"}`);
       return 0;
     }
     case "runs": {
