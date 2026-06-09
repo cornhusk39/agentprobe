@@ -1,19 +1,20 @@
-// Integration test for the authored-suite layer against a real temporary
-// database. The database path is taken from AGENTPROBE_DB_PATH, set before the
-// module under test is imported so its lazily-opened connection points here.
+// Integration test for the authored-suite layer against a real temporary suite
+// file. AGENTPROBE_SUITE_FILE is set before the module under test is imported so
+// its reads and writes target the temp file.
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { promises as fs } from "node:fs";
+import { promises as fs, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 let dir: string;
-// Imported dynamically in beforeAll, after the env var is set.
 let suiteLib: typeof import("./suite");
 
 beforeAll(async () => {
   dir = await fs.mkdtemp(path.join(os.tmpdir(), "agentprobe-web-"));
-  process.env.AGENTPROBE_DB_PATH = path.join(dir, "test.db");
+  const file = path.join(dir, "suite.json");
+  writeFileSync(file, JSON.stringify({ name: "demo", cases: [] }));
+  process.env.AGENTPROBE_SUITE_FILE = file;
   suiteLib = await import("./suite");
 });
 
@@ -21,24 +22,25 @@ afterAll(async () => {
   await fs.rm(dir, { recursive: true, force: true });
 });
 
-describe("authored suite import/export", () => {
-  it("round-trips a suite through export and import", () => {
-    const seed = JSON.stringify({
-      name: "anything",
-      cases: [
-        {
-          id: "c1",
-          input: { q: "hi" },
-          assertions: [{ kind: "tool-called", tool: "search" }],
-          rubric: { criteria: "ok", passThreshold: 0.7 },
-        },
-      ],
-    });
-    expect(suiteLib.importSuiteJson(seed).ok).toBe(true);
+describe("authored suite (file-backed)", () => {
+  it("saves a case and reads it back, preserving the suite name", () => {
+    const result = suiteLib.saveCaseFromJson(
+      JSON.stringify({
+        id: "c1",
+        input: { q: "hi" },
+        assertions: [{ kind: "tool-called", tool: "search" }],
+        rubric: { criteria: "ok", passThreshold: 0.7 },
+      }),
+    );
+    expect(result.ok).toBe(true);
+    expect(suiteLib.activeSuite()).toBe("demo");
+    expect(suiteLib.getCase("c1")?.id).toBe("c1");
+    expect(suiteLib.listCases()).toHaveLength(1);
+  });
 
+  it("exports and round-trips through import", () => {
     const exported = suiteLib.exportSuiteJson();
-    expect(JSON.parse(exported).cases.map((c: { id: string }) => c.id)).toContain("c1");
-    // re-importing the export is a no-op upsert, still valid
+    expect(JSON.parse(exported).name).toBe("demo");
     expect(suiteLib.importSuiteJson(exported).ok).toBe(true);
   });
 
@@ -56,6 +58,11 @@ describe("authored suite import/export", () => {
     // The valid case from the rejected batch must NOT have been persisted.
     expect(suiteLib.getCase("good-new")).toBeUndefined();
     expect(suiteLib.listCases().length).toBe(before);
+  });
+
+  it("deletes a case", () => {
+    suiteLib.deleteCase("c1");
+    expect(suiteLib.getCase("c1")).toBeUndefined();
   });
 
   it("reports a friendly error for non-JSON input", () => {

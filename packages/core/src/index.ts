@@ -12,6 +12,5 @@ export * from "./assertions.js";
 export * from "./suite.js";
 export * from "./judge.js";
 export * from "./store.js";
-export * from "./suiteStore.js";
 export * from "./runner.js";
 export * from "./regression.js";

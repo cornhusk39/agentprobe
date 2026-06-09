@@ -20,15 +20,22 @@ import {
   DEFAULT_THRESHOLDS,
   Store,
   flipCount,
+  loadSuiteFile,
   type Judge,
   type RunReport,
   type RegressionReport,
   type StoredRun,
+  type Suite,
 } from "@agentprobe/core";
 import type { AgentProbeConfig } from "./config.js";
 
 function nowClock(): () => number {
   return () => Date.now();
+}
+
+// Load and validate the suite from the committed file the config points at.
+function loadSuite(config: AgentProbeConfig): Promise<Suite> {
+  return loadSuiteFile(config.suiteFile);
 }
 
 // In offline scoring the cache must already hold every verdict, so the inner
@@ -46,10 +53,11 @@ export async function recordCommand(config: AgentProbeConfig): Promise<RunReport
     throw new Error("This config has no liveAgent, so it can only replay. Nothing to record.");
   }
   const liveAgent = config.liveAgent;
+  const suite = await loadSuite(config);
 
   await fs.mkdir(config.cassetteDir, { recursive: true });
   const now = nowClock();
-  for (const c of config.suite.cases) {
+  for (const c of suite.cases) {
     await record({
       agent: liveAgent(c),
       caseId: c.id,
@@ -65,7 +73,7 @@ export async function recordCommand(config: AgentProbeConfig): Promise<RunReport
   const judge = cachedJudge(config.recordJudge ?? anthropicJudge(), cache, { offline: false });
 
   const report = await runSuite({
-    suite: config.suite,
+    suite,
     agentFor: (c) => store.agentFor(c.id),
     judge,
     mode: "record",
@@ -80,11 +88,12 @@ export async function recordCommand(config: AgentProbeConfig): Promise<RunReport
 // Replay every cassette offline and score it. Deterministic, key-free. Used by
 // the dashboard data path and as the basis for baseline and check.
 export async function replayReport(config: AgentProbeConfig): Promise<RunReport> {
+  const suite = await loadSuite(config);
   const store = await ReplayStore.fromDir(config.cassetteDir);
   const cache = await JudgeCache.load(config.judgeCacheFile);
   const judge = cachedJudge(offlineInner, cache, { offline: true });
   return runSuite({
-    suite: config.suite,
+    suite,
     agentFor: (c) => store.agentFor(c.id),
     judge,
     mode: "replay",
@@ -159,12 +168,13 @@ const CONFIG_TEMPLATE = `import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "@agentprobe/cli";
 import { httpAgent, anthropicJudge } from "@agentprobe/core";
-import { suite } from "./suite.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  suite,
+  // The suite lives in a committed JSON file: the single source of truth that
+  // both this CLI and the dashboard read and edit.
+  suiteFile: path.join(here, "suite.json"),
   cassetteDir: path.join(here, "cassettes"),
   judgeCacheFile: path.join(here, "judge-cache.json"),
   baselineFile: path.join(here, "baseline.json"),
@@ -185,33 +195,33 @@ export default defineConfig({
 });
 `;
 
-const SUITE_TEMPLATE = `import { defineSuite } from "@agentprobe/core";
-
-export const suite = defineSuite({
-  name: "my-suite",
-  cases: [
+// The starter suite, as JSON. Assertion catalog: tool-called, tool-not-called,
+// tool-args, tool-call-count, tool-call-order, output-field, output-schema (JSON
+// Schema), latency-budget, cost-budget, step-budget.
+const SUITE_TEMPLATE =
+  JSON.stringify(
     {
-      id: "example",
-      description: "Describe what this case checks.",
-      input: { question: "What are your hours?" },
-      assertions: [
-        // See the assertion catalog: tool-called, tool-not-called, tool-args,
-        // tool-call-count, tool-call-order, output-field, output-schema,
-        // latency-budget, cost-budget, step-budget.
-        { kind: "latency-budget", maxMs: 5000 },
+      name: "my-suite",
+      cases: [
+        {
+          id: "example",
+          description: "Describe what this case checks.",
+          input: { question: "What are your hours?" },
+          assertions: [{ kind: "latency-budget", maxMs: 5000 }],
+          rubric: { criteria: "Answers the question helpfully and accurately.", passThreshold: 0.7 },
+        },
       ],
-      rubric: { criteria: "Answers the question helpfully and accurately.", passThreshold: 0.7 },
     },
-  ],
-});
-`;
+    null,
+    2,
+  ) + "\n";
 
-// Scaffold a starter project: a config and a sample suite in the target
+// Scaffold a starter project: a config and a sample suite JSON in the target
 // directory. Refuses to overwrite an existing config so a real project is never
 // clobbered. Returns the paths it created.
 export async function initCommand(dir: string): Promise<string[]> {
   const configPath = path.join(dir, "agentprobe.config.ts");
-  const suitePath = path.join(dir, "suite.ts");
+  const suitePath = path.join(dir, "suite.json");
   if (existsSync(configPath)) {
     throw new Error(`agentprobe.config.ts already exists in ${dir}. Refusing to overwrite.`);
   }
@@ -228,14 +238,15 @@ export async function initCommand(dir: string): Promise<string[]> {
 
 // Read the stored run history for this suite, newest first. Lets the run log be
 // inspected from the terminal, without the dashboard.
-export function listRunsCommand(config: AgentProbeConfig, limit = 20): StoredRun[] {
+export async function listRunsCommand(config: AgentProbeConfig, limit = 20): Promise<StoredRun[]> {
   // No database file means nothing has been recorded yet; that is an empty
   // history, not an error. Avoids creating a stray database just to read it.
   if (!config.dbPath || !existsSync(config.dbPath)) return [];
+  const { name } = await loadSuite(config);
   const store = openStore(config);
   if (!store) return [];
   try {
-    return store.listRuns(config.suite.name, limit);
+    return store.listRuns(name, limit);
   } finally {
     store.close();
   }
@@ -259,9 +270,10 @@ const mean = (xs: number[]): number => (xs.length ? xs.reduce((a, b) => a + b, 0
 
 // Aggregate health stats for the suite, for an at-a-glance terminal or CI
 // summary. Empty (zeroed) when nothing has been recorded.
-export function statsCommand(config: AgentProbeConfig): SuiteStats {
+export async function statsCommand(config: AgentProbeConfig): Promise<SuiteStats> {
+  const { name } = await loadSuite(config);
   const empty: SuiteStats = {
-    suite: config.suite.name,
+    suite: name,
     runs: 0,
     latestPassRate: null,
     avgJudge: null,
@@ -274,7 +286,7 @@ export function statsCommand(config: AgentProbeConfig): SuiteStats {
   const store = openStore(config);
   if (!store) return empty;
   try {
-    const suite = config.suite.name;
+    const suite = name;
     const runs = store.listRuns(suite, 1000);
     if (runs.length === 0) return empty;
 

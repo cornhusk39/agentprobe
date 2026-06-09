@@ -4,13 +4,26 @@
 // arguments, a malformed output, and silent cost, latency, or step blowups.
 
 import { z } from "zod";
+import Ajv, { type ValidateFunction } from "ajv";
 import { toolCalls, toolNames, type AgentRunResult, type ToolCall } from "./types.js";
 
-// A Zod schema used by the output-schema assertion. It is a real schema object,
-// so it does not survive JSON export; that assertion is TS-suite only by design.
-const zodSchema = z.custom<z.ZodTypeAny>((v) => v instanceof z.ZodType, {
-  message: "expected a Zod schema",
-});
+// JSON Schema validation backs the output-schema assertion. ajv is the standard
+// validator; using it keeps output-schema fully serializable, so it can live in
+// a JSON suite and be edited in the dashboard, while still supporting rich,
+// nested shape checks. The instance is non-strict so ordinary schemas need no
+// ajv-specific annotations, and compiled validators are cached by schema so a
+// suite that runs repeatedly does not recompile the same schema.
+const ajv = new Ajv({ allErrors: true, strict: false });
+const validatorCache = new Map<string, ValidateFunction>();
+function compileSchema(schema: Record<string, unknown>): ValidateFunction {
+  const key = JSON.stringify(schema);
+  let validate = validatorCache.get(key);
+  if (!validate) {
+    validate = ajv.compile(schema);
+    validatorCache.set(key, validate);
+  }
+  return validate;
+}
 
 // The assertion catalog, as a discriminated union on `kind`. Authors build
 // these as plain objects in a suite; the evaluator below interprets them.
@@ -42,9 +55,10 @@ export const assertionSchema = z.discriminatedUnion("kind", [
     args: z.record(z.unknown()),
     match: z.enum(["subset", "exact"]).default("subset"),
   }),
-  // The agent's output parses against the given schema. This one holds a live
-  // Zod schema, so it is for code-defined TS suites only; it does not serialize.
-  z.object({ kind: z.literal("output-schema"), schema: zodSchema }),
+  // The agent's output validates against the given JSON Schema. Serializable, so
+  // it works in a JSON suite and the dashboard, and supports nested shape checks
+  // beyond what output-field expresses.
+  z.object({ kind: z.literal("output-schema"), schema: z.record(z.unknown()) }),
   // A single field of the output exists, or equals a value. Fully serializable,
   // so it can be authored in the dashboard. `path` is a dot path into the output
   // (for example "status" or "property.type").
@@ -188,14 +202,25 @@ function evaluateOne(result: AgentRunResult, assertion: Assertion): AssertionRes
       };
     }
     case "output-schema": {
-      const parsed = assertion.schema.safeParse(result.output);
+      let validate: ValidateFunction;
+      try {
+        validate = compileSchema(assertion.schema as Record<string, unknown>);
+      } catch (err) {
+        // A malformed JSON Schema is an authoring error, surfaced as a failed
+        // assertion rather than a thrown run.
+        return {
+          kind: assertion.kind,
+          label: "output-schema",
+          pass: false,
+          message: `invalid JSON Schema: ${(err as Error).message}`,
+        };
+      }
+      const ok = validate(result.output);
       return {
         kind: assertion.kind,
         label: "output-schema",
-        pass: parsed.success,
-        message: parsed.success
-          ? "output matched the schema"
-          : `output did not match the schema: ${parsed.error.issues.map((i) => i.message).join("; ")}`,
+        pass: Boolean(ok),
+        message: ok ? "output matched the schema" : `output did not match the schema: ${ajv.errorsText(validate.errors)}`,
       };
     }
     case "output-field": {

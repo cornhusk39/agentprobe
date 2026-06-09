@@ -4,7 +4,7 @@
 // confirms the check fails, then reverts and confirms it passes again.
 
 import { describe, it, expect, afterEach } from "vitest";
-import { promises as fs } from "node:fs";
+import { promises as fs, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { defineAgent, defineSuite, scriptedJudge, type Case } from "@agentprobe/core";
@@ -67,8 +67,11 @@ const brokenAgent = defineAgent("booking-agent", () => ({
 }));
 
 function configFor(dir: string, agent: (c: Case) => ReturnType<typeof defineAgent>) {
+  // Write the suite to a JSON file, the single source the commands read.
+  const suiteFile = path.join(dir, "suite.json");
+  writeFileSync(suiteFile, JSON.stringify(suite));
   return defineConfig({
-    suite,
+    suiteFile,
     cassetteDir: path.join(dir, "cassettes"),
     judgeCacheFile: path.join(dir, "judge-cache.json"),
     baselineFile: path.join(dir, "baseline.json"),
@@ -108,13 +111,15 @@ describe("CLI record/baseline/check loop", () => {
   it("scaffolds a starter project and refuses to overwrite an existing config", async () => {
     const dir = await workspace();
     const created = await initCommand(dir);
-    expect(created.map((f) => path.basename(f))).toEqual(["agentprobe.config.ts", "suite.ts"]);
+    expect(created.map((f) => path.basename(f))).toEqual(["agentprobe.config.ts", "suite.json"]);
 
     const config = await fs.readFile(path.join(dir, "agentprobe.config.ts"), "utf8");
     expect(config).toContain("defineConfig");
     expect(config).toContain("httpAgent");
-    const suite = await fs.readFile(path.join(dir, "suite.ts"), "utf8");
-    expect(suite).toContain("defineSuite");
+    expect(config).toContain("suiteFile");
+    // The scaffolded suite is valid JSON with at least one case.
+    const suite = JSON.parse(await fs.readFile(path.join(dir, "suite.json"), "utf8"));
+    expect(suite.cases.length).toBeGreaterThan(0);
 
     // Running again refuses, so a real project is never clobbered.
     await expect(initCommand(dir)).rejects.toThrow(/already exists/);
@@ -131,13 +136,13 @@ describe("CLI record/baseline/check loop", () => {
     const dir = await workspace();
     const config = configFor(dir, () => goodAgent);
     // No database yet: empty, zeroed stats rather than an error.
-    expect(statsCommand(config).runs).toBe(0);
-    expect(statsCommand(config).baselineRunUid).toBeNull();
+    expect((await statsCommand(config)).runs).toBe(0);
+    expect((await statsCommand(config)).baselineRunUid).toBeNull();
 
     await recordCommand(config);
     await baselineCommand(config);
 
-    const stats = statsCommand(config);
+    const stats = await statsCommand(config);
     expect(stats.runs).toBe(2);
     expect(stats.latestPassRate).toBe(1); // the single case passes
     expect(stats.flakyCases).toBe(0); // stable across both runs
@@ -150,13 +155,13 @@ describe("CLI record/baseline/check loop", () => {
     const dir = await workspace();
     const config = configFor(dir, () => goodAgent);
     // No runs yet.
-    expect(listRunsCommand(config)).toHaveLength(0);
+    expect(await listRunsCommand(config)).toHaveLength(0);
 
     // Each record persists a run; baseline persists another.
     await recordCommand(config);
     await baselineCommand(config);
 
-    const runs = listRunsCommand(config);
+    const runs = await listRunsCommand(config);
     expect(runs.length).toBe(2);
     // Newest first: ids descend.
     expect(runs[0]!.id).toBeGreaterThan(runs[1]!.id);

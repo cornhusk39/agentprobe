@@ -135,10 +135,11 @@ with `mapResponse`.
 // agentprobe.config.ts  (scaffold one with `agentprobe init`)
 import { defineConfig } from "@agentprobe/cli";
 import { httpAgent, anthropicJudge } from "@agentprobe/core";
-import { suite } from "./suite.js";
 
 export default defineConfig({
-  suite,
+  // The suite lives in one committed JSON file that the CLI, CI, and the
+  // dashboard all read and edit, so there is no second copy to drift.
+  suiteFile: "./suite.json",
   cassetteDir: "./cassettes",
   judgeCacheFile: "./judge-cache.json",
   baselineFile: "./baseline.json",
@@ -205,10 +206,6 @@ This is a pnpm workspace.
 
 This is a focused v1. Known boundaries:
 
-- **The dashboard's authored suite and the CLI's code suite are separate stores.**
-  The dashboard edits cases in its local database for fast iteration; the
-  committed TypeScript suite is the source of truth for CI. Reconciling the two
-  (a `suite sync` / codegen step) is the most-wanted next feature.
 - **The HTTP adapter expects a structured trace.** Agents built on frameworks
   that don't expose tool calls over HTTP need a `mapResponse` shim; first-class
   adapters for common frameworks are on the roadmap.

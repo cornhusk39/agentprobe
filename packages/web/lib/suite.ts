@@ -1,27 +1,36 @@
-// Server-only access to the authored suite. The dashboard edits cases here and
-// they persist to the same database the runs live in. Writes validate the case
-// shape (via the engine's SuiteStore), so an invalid assertion is rejected
-// before it is saved.
+// Server-only access to the authored suite. The dashboard edits the SAME
+// committed suite JSON that the CLI and CI read, so there is no second copy to
+// drift. Writes validate the whole suite (via the engine's defineSuite) before
+// touching disk, so an invalid case is rejected and a malformed import can never
+// leave a half-applied suite.
 
-import { SuiteStore, type Case } from "@agentprobe/core";
-import { dbPath, suiteName } from "./db";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { defineSuite, type Case, type Suite } from "@agentprobe/core";
+import { suiteFilePath } from "./paths";
 
-let store: SuiteStore | null = null;
-function ss(): SuiteStore {
-  if (!store) store = new SuiteStore(dbPath());
-  return store;
+function read(): Suite {
+  const file = suiteFilePath();
+  if (!existsSync(file)) return { name: "suite", cases: [] };
+  return defineSuite(JSON.parse(readFileSync(file, "utf8")));
+}
+
+// Validate the whole suite, then write it. Validation-before-write is what makes
+// every edit and import all-or-nothing.
+function write(suite: Suite): void {
+  const parsed = defineSuite(suite);
+  writeFileSync(suiteFilePath(), JSON.stringify(parsed, null, 2) + "\n", "utf8");
 }
 
 export function activeSuite(): string {
-  return suiteName();
+  return read().name;
 }
 
 export function listCases(): Case[] {
-  return ss().getCases(activeSuite());
+  return read().cases;
 }
 
 export function getCase(caseId: string): Case | undefined {
-  return ss().getCase(activeSuite(), caseId);
+  return read().cases.find((c) => c.id === caseId);
 }
 
 export interface SaveResult {
@@ -29,8 +38,8 @@ export interface SaveResult {
   error?: string;
 }
 
-// Parse and persist a case authored as JSON in the editor. Returns a friendly
-// error instead of throwing so the form can show it.
+// Parse and persist a single case authored as JSON in the editor (upsert by id).
+// Returns a friendly error instead of throwing so the form can show it.
 export function saveCaseFromJson(json: string): SaveResult {
   let parsed: unknown;
   try {
@@ -39,9 +48,12 @@ export function saveCaseFromJson(json: string): SaveResult {
     return { ok: false, error: `Not valid JSON: ${(err as Error).message}` };
   }
   try {
-    const suite = activeSuite();
-    ss().upsertSuite(suite, new Date().toISOString());
-    ss().upsertCase(suite, parsed as Case);
+    const suite = read();
+    const incoming = parsed as Case;
+    // Replace in place to preserve ordering; append only when it is a new case.
+    const exists = suite.cases.some((c) => c.id === incoming.id);
+    const cases = exists ? suite.cases.map((c) => (c.id === incoming.id ? incoming : c)) : [...suite.cases, incoming];
+    write({ name: suite.name, cases });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: formatValidationError(err) };
@@ -65,20 +77,19 @@ function formatValidationError(err: unknown): string {
 }
 
 export function deleteCase(caseId: string): void {
-  ss().deleteCase(activeSuite(), caseId);
+  const suite = read();
+  write({ name: suite.name, cases: suite.cases.filter((c) => c.id !== caseId) });
 }
 
-// Serialize the authored suite to portable JSON: the suite name and its cases.
-// This round-trips through importSuiteJson because authored cases use only the
-// serializable assertion kinds.
+// Serialize the authored suite to portable JSON.
 export function exportSuiteJson(): string {
-  return JSON.stringify({ name: activeSuite(), cases: listCases() }, null, 2);
+  return JSON.stringify(read(), null, 2);
 }
 
-// Import a suite from JSON, upserting each case (overwriting matching ids,
-// adding new ones). Each case is validated on write, so a malformed import is
-// rejected before anything is saved. Non-destructive: cases not in the import
-// are left in place.
+// Import a suite from JSON, upserting each case by id (overwriting a matching
+// case, adding new ones, leaving others in place). The merged suite is validated
+// before anything is written, so a malformed import leaves the existing suite
+// untouched. The active suite name is preserved.
 export function importSuiteJson(json: string): SaveResult {
   let parsed: unknown;
   try {
@@ -91,11 +102,10 @@ export function importSuiteJson(json: string): SaveResult {
     return { ok: false, error: 'Expected an object with a "cases" array.' };
   }
   try {
-    const suite = activeSuite();
-    ss().upsertSuite(suite, new Date().toISOString());
-    // Atomic: every case is validated before any is written, so a malformed
-    // import leaves the existing suite untouched.
-    ss().upsertCases(suite, cases as Case[]);
+    const existing = read();
+    const byId = new Map(existing.cases.map((c) => [c.id, c]));
+    for (const c of cases as Case[]) byId.set(c.id, c);
+    write({ name: existing.name, cases: [...byId.values()] });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: formatValidationError(err) };

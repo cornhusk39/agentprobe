@@ -176,7 +176,7 @@ async function main(): Promise<number> {
       return 0;
     }
     case "stats": {
-      const s = statsCommand(config);
+      const s = await statsCommand(config);
       if (s.runs === 0) {
         console.log(`No runs recorded yet for suite "${s.suite}".`);
         return 0;
@@ -193,12 +193,12 @@ async function main(): Promise<number> {
       return 0;
     }
     case "runs": {
-      const runs = listRunsCommand(config);
+      const runs = await listRunsCommand(config);
       if (runs.length === 0) {
-        console.log(`No runs recorded yet for suite "${config.suite.name}".`);
+        console.log(`No runs recorded yet.`);
         return 0;
       }
-      console.log(`run history for suite "${config.suite.name}" (newest first):\n`);
+      console.log(`run history (newest first):\n`);
       for (const r of runs) {
         const flag = r.isBaseline ? " *baseline" : "";
         const judge = r.avgJudgeScore !== null ? `judge ${r.avgJudgeScore.toFixed(2)}` : "judge -";

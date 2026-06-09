@@ -16,7 +16,7 @@ export function assertionSummary(a: Assertion): string {
     case "tool-args":
       return `${a.tool} args ${JSON.stringify(a.args)} (${a.match ?? "subset"})`;
     case "output-schema":
-      return "matches a Zod schema";
+      return "matches a JSON Schema";
     case "output-field":
       return a.op === "exists" ? `${a.path} exists` : `${a.path} = ${JSON.stringify(a.value)}`;
     case "latency-budget":
