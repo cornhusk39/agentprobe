@@ -4,27 +4,31 @@
 
 Output docs/screenshots/regression-catch.gif
 
-Set FontSize 18
-Set Width 1100
-Set Height 620
+Set Shell "bash"
+Set FontSize 17
+Set Width 1180
+Set Height 640
 Set Theme "Catppuccin Mocha"
-Set Padding 20
+Set Padding 22
+Set TypingSpeed 30ms
 
-Type "cd examples/reference-agent" Enter
-Sleep 500ms
+Hide
+Type "cd examples/reference-agent && clear" Enter
+Sleep 1s
+Show
 
-Type "pnpm check   # the gate is green" Enter
-Sleep 3s
+Type "pnpm check        # the gate is green" Sleep 500ms Enter
+Sleep 6s
 
-Type "# now inject a regression: the agent stops calling its booking tool" Enter
-Sleep 800ms
-Type "AGENTPROBE_DEMO_REGRESSION=1 pnpm record" Enter
-Sleep 4s
+Type "# inject a regression: the agent stops calling its booking tool" Enter
+Sleep 1s
+Type "AGENTPROBE_DEMO_REGRESSION=1 pnpm record" Sleep 500ms Enter
+Sleep 6s
 
-Type "pnpm check   # fails, exit 1, names the broken assertions" Enter
-Sleep 4s
+Type "pnpm check        # fails, exit 1, names the broken assertions" Sleep 500ms Enter
+Sleep 7s
 
-Type "pnpm record  # revert" Enter
-Sleep 3s
-Type "pnpm check   # green again" Enter
-Sleep 4s
+Type "pnpm record       # revert" Sleep 500ms Enter
+Sleep 6s
+Type "pnpm check        # green again" Sleep 500ms Enter
+Sleep 7s

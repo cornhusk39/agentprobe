@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --bg: #0d1117;
+        --panel: #161b22;
+        --border: #2a313c;
+        --text: #e6edf3;
+        --muted: #8b949e;
+        --accent: #58a6ff;
+        --pass: #3fb950;
+        --fail: #f85149;
+      }
+      * { box-sizing: border-box; margin: 0; }
+      html, body { width: 1280px; height: 640px; }
+      body {
+        background: radial-gradient(1200px 500px at 80% -10%, #11203a 0%, var(--bg) 55%);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        padding: 72px 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .top { display: flex; align-items: center; gap: 16px; }
+      .logo {
+        width: 56px; height: 56px; border-radius: 14px;
+        background: linear-gradient(135deg, var(--accent), #1f6feb);
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 30px; color: #06243f;
+      }
+      h1 { font-size: 64px; letter-spacing: -1px; }
+      .tag { font-size: 34px; color: var(--text); margin-top: 18px; font-weight: 500; line-height: 1.3; }
+      .tag b { color: var(--accent); }
+      .chips { display: flex; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+      .chip {
+        border: 1px solid var(--border); background: var(--panel);
+        border-radius: 999px; padding: 12px 20px; font-size: 22px; color: var(--text);
+      }
+      .chip .g { color: var(--pass); } .chip .r { color: var(--fail); }
+      .footer { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 22px; }
+      .footer .stack { font-variant: small-caps; letter-spacing: 0.5px; }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div class="top">
+        <div class="logo">A</div>
+        <h1>AgentProbe</h1>
+      </div>
+      <div class="tag">A regression safety net for <b>LLM agents</b>.</div>
+    </div>
+
+    <div class="chips">
+      <div class="chip">record &rarr; replay in CI</div>
+      <div class="chip">assertions + LLM judge</div>
+      <div class="chip">fails the build on <span class="r">regressions</span></div>
+    </div>
+
+    <div class="footer">
+      <div class="stack">TypeScript &middot; pnpm monorepo &middot; Next.js &middot; SQLite</div>
+      <div><code>github.com/cornhusk39/agentprobe</code></div>
+    </div>
+  </body>
+</html>
