@@ -49,7 +49,14 @@ export async function recordCommand(config: AgentProbeConfig): Promise<RunReport
   await fs.mkdir(config.cassetteDir, { recursive: true });
   const now = nowClock();
   for (const c of config.suite.cases) {
-    await record({ agent: liveAgent(c), caseId: c.id, input: c.input, dir: config.cassetteDir, ctx: { now } });
+    await record({
+      agent: liveAgent(c),
+      caseId: c.id,
+      input: c.input,
+      dir: config.cassetteDir,
+      ctx: { now },
+      rules: config.redactionRules,
+    });
   }
 
   const store = await ReplayStore.fromDir(config.cassetteDir);

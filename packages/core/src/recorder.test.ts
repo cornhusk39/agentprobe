@@ -5,6 +5,7 @@ import path from "node:path";
 import { defineAgent } from "./agent.js";
 import { record } from "./recorder.js";
 import { readCassette, cassetteFileName } from "./cassette.js";
+import { DEFAULT_RULES } from "./redaction.js";
 import type { RunContext } from "./types.js";
 
 const fixedCtx: RunContext = { now: () => 1_700_000_000_000 };
@@ -53,5 +54,31 @@ describe("record", () => {
     });
     expect(cassette.caseId).toBe("no-dir");
     expect(JSON.stringify(cassette)).not.toContain("a@b.com");
+  });
+
+  it("applies org-specific custom redaction rules on top of the defaults", async () => {
+    // An agent that echoes an internal employee id the default rules do not know.
+    const internalAgent = defineAgent("internal", (input) => ({
+      output: `assigned to ${(input as { agent: string }).agent}, notify customer@example.com`,
+      trace: [],
+      metrics: { latencyMs: 1, costUsd: 0, steps: 0 },
+    }));
+
+    const { cassette } = await record({
+      agent: internalAgent,
+      caseId: "custom-rule",
+      input: { agent: "EMP-90210" },
+      ctx: fixedCtx,
+      // Defaults plus an org pattern for employee ids.
+      rules: [...DEFAULT_RULES, { name: "employee-id", pattern: /EMP-\d+/g }],
+    });
+
+    const serialized = JSON.stringify(cassette);
+    // The custom pattern is redacted...
+    expect(serialized).not.toContain("EMP-90210");
+    expect(serialized).toContain("[REDACTED:employee-id]");
+    // ...and the defaults still apply.
+    expect(serialized).not.toContain("customer@example.com");
+    expect(serialized).toContain("[REDACTED:email]");
   });
 });

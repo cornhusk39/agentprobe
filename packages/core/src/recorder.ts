@@ -8,6 +8,7 @@ import type { Agent } from "./agent.js";
 import type { AgentRunResult, RunContext } from "./types.js";
 import { liveContext } from "./types.js";
 import { buildCassette, writeCassette, type Cassette } from "./cassette.js";
+import { DEFAULT_RULES, type RedactionRule } from "./redaction.js";
 
 export interface RecordOptions {
   agent: Agent;
@@ -17,6 +18,11 @@ export interface RecordOptions {
   // redaction-checked but not persisted, which is useful for tests.
   dir?: string;
   ctx?: RunContext;
+  // Redaction rules applied before the cassette is written. Defaults to the
+  // built-in set; supply your own (usually the defaults plus org-specific
+  // patterns) to catch secret shapes the defaults do not know about. The
+  // fail-closed verify still runs against the fixed forbidden set regardless.
+  rules?: RedactionRule[];
 }
 
 export interface RecordResult {
@@ -40,10 +46,11 @@ export async function record(options: RecordOptions): Promise<RecordResult> {
     result,
   };
 
+  const rules = options.rules ?? DEFAULT_RULES;
   if (options.dir) {
-    const cassette = await writeCassette(options.dir, payload);
+    const cassette = await writeCassette(options.dir, payload, rules);
     return { cassette, result };
   }
-  const { cassette } = buildCassette(payload);
+  const { cassette } = buildCassette(payload, rules);
   return { cassette, result };
 }

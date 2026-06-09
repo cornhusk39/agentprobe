@@ -3,7 +3,7 @@
 // paths for cassettes, the judge cache, the baseline, and the database, and (for
 // record mode) how to build a live agent and which judge to use.
 
-import type { Agent, Case, Judge, RegressionThresholds, Suite } from "@agentprobe/core";
+import type { Agent, Case, Judge, RedactionRule, RegressionThresholds, Suite } from "@agentprobe/core";
 
 export interface AgentProbeConfig {
   suite: Suite;
@@ -23,6 +23,10 @@ export interface AgentProbeConfig {
   recordJudge?: Judge;
   // Optional per-project regression thresholds; falls back to the defaults.
   thresholds?: Partial<RegressionThresholds>;
+  // Optional redaction rules applied at record time. Usually the built-in
+  // DEFAULT_RULES spread with org-specific patterns (internal key formats,
+  // employee ids). Only the record command uses these; replay never redacts.
+  redactionRules?: RedactionRule[];
 }
 
 // Identity helper that exists purely for editor types and a stable import the

@@ -102,8 +102,12 @@ export function cassetteFileName(caseId: string): string {
   return `${safe}.json`;
 }
 
-export async function writeCassette(dir: string, input: WriteCassetteInput): Promise<Cassette> {
-  const { cassette } = buildCassette(input);
+export async function writeCassette(
+  dir: string,
+  input: WriteCassetteInput,
+  rules: RedactionRule[] = DEFAULT_RULES,
+): Promise<Cassette> {
+  const { cassette } = buildCassette(input, rules);
   await fs.mkdir(dir, { recursive: true });
   const file = path.join(dir, cassetteFileName(cassette.caseId));
   // Pretty-printed and newline-terminated so cassettes diff cleanly in review,

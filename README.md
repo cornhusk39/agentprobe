@@ -209,6 +209,11 @@ regression report instead, for other tooling.
 This repo is built to be made public by a human, later. From commit one: secrets
 live in env only, `.env` is gitignored, `.env.example` is committed, a gitleaks
 pre-commit hook runs on every commit, and `publish-gate.sh` is the hard gate.
+
+Cassettes are redacted at capture time with a built-in rule set (provider keys,
+tokens, emails, and other PII), and a config can add `redactionRules` for
+org-specific secret shapes; the fail-closed verify still refuses to write a
+cassette that contains a residual secret.
 The HTTP adapter enforces an endpoint allowlist, a bearer token read from env, a
 response timeout, a size cap, and no redirects. See `SPEC.md` for the full
 threat model.
