@@ -17,8 +17,9 @@ export default async function EditCasePage({ params }: { params: Promise<{ caseI
       </p>
       <h2 style={{ marginTop: 8 }}>Edit case: {c.id}</h2>
       <p className="meta">
-        Assertions support: tool-called, tool-args, output-field (exists / equals), latency-budget,
-        cost-budget, step-budget. Save validates the shape before writing.
+        Assertions support: tool-called, tool-not-called, tool-args, tool-call-count, tool-call-order,
+        output-field (exists / equals), latency-budget, cost-budget, step-budget. Save validates the
+        shape before writing.
       </p>
       <CaseEditor initialJson={JSON.stringify(c, null, 2)} />
     </>

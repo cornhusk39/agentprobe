@@ -356,6 +356,11 @@ nav.top a {
 nav.top a:hover {
   color: var(--text);
 }
+nav.top a[aria-current="page"] {
+  color: var(--text);
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 2px;
+}
 .actions-inline {
   display: flex;
   gap: 8px;

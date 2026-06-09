@@ -1,7 +1,7 @@
 import "./globals.css";
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { suiteName } from "../lib/db";
+import { Nav } from "../components/Nav";
 
 export const metadata = {
   title: "AgentProbe",
@@ -18,11 +18,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <span className="sub">
               suite <code>{suiteName()}</code>
             </span>
-            <nav className="top">
-              <Link href="/">Runs</Link>
-              <Link href="/suite">Suite</Link>
-              <Link href="/compare">Compare</Link>
-            </nav>
+            <Nav />
           </div>
         </header>
         <main className="container">{children}</main>

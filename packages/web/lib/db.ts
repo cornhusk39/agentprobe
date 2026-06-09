@@ -58,9 +58,10 @@ function toCase(c: StoredCaseResult): SeedCase {
             score: c.judgeScore,
             pass: c.judgePass ?? false,
             rationale: c.judgeRationale ?? "",
-            // The engine does not persist the judge model on the row; the rubric
-            // carries it. Label it generically here for display.
-            model: "judge",
+            // The engine does not persist the judge model on the row. The
+            // interactive runs use the deterministic heuristic judge, so label it
+            // as such rather than repeating an uninformative "judge".
+            model: "heuristic",
           }
         : undefined,
     metrics: { latencyMs: c.latencyMs, costUsd: c.costUsd, steps: c.steps },
