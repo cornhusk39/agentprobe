@@ -131,6 +131,7 @@ const AUTHORED_CASES: Case[] = [
     input: { intent: "book", day: "wednesday", service: "hvac", customer: { name: "Sam Lee", phone: "512-555-0199" } },
     assertions: [
       { kind: "tool-called", tool: "check_availability" },
+      { kind: "tool-not-called", tool: "create_booking" },
       { kind: "output-field", path: "status", op: "equals", value: "unavailable" },
       { kind: "cost-budget", maxUsd: 0.02 },
     ],

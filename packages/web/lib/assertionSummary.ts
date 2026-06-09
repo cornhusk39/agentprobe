@@ -7,6 +7,8 @@ export function assertionSummary(a: Assertion): string {
   switch (a.kind) {
     case "tool-called":
       return a.tool;
+    case "tool-not-called":
+      return `${a.tool} (must not be called)`;
     case "tool-args":
       return `${a.tool} args ${JSON.stringify(a.args)} (${a.match ?? "subset"})`;
     case "output-schema":

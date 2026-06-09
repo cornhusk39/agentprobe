@@ -35,8 +35,9 @@ export const suite = defineSuite({
       input: { intent: "book", day: "wednesday", service: "hvac", customer: { name: "Sam Lee", phone: "512-555-0199" } },
       assertions: [
         { kind: "tool-called", tool: "check_availability" },
-        // The output-schema literal proves it did not book: status must be
-        // "unavailable", which the agent only returns when it skips create_booking.
+        // Assert directly that it did not book, rather than inferring it from
+        // the output shape.
+        { kind: "tool-not-called", tool: "create_booking" },
         { kind: "output-schema", schema: z.object({ status: z.literal("unavailable") }) },
         { kind: "cost-budget", maxUsd: 0.02 },
       ],

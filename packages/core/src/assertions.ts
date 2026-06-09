@@ -17,6 +17,10 @@ const zodSchema = z.custom<z.ZodTypeAny>((v) => v instanceof z.ZodType, {
 export const assertionSchema = z.discriminatedUnion("kind", [
   // The named tool appears at least once in the trace.
   z.object({ kind: z.literal("tool-called"), tool: z.string() }),
+  // The named tool was never called. The negative is its own failure mode: a
+  // case can demand that an agent decline rather than act, and "did not book"
+  // is something only this assertion can express directly.
+  z.object({ kind: z.literal("tool-not-called"), tool: z.string() }),
   // A call to the named tool has arguments matching `args`. "subset" checks
   // that each given key matches; "exact" requires the whole arg object to match.
   z.object({
@@ -109,6 +113,17 @@ function evaluateOne(result: AgentRunResult, assertion: Assertion): AssertionRes
         message: called
           ? `tool "${assertion.tool}" was called`
           : `tool "${assertion.tool}" was never called`,
+      };
+    }
+    case "tool-not-called": {
+      const called = toolCalls(result.trace).some((c) => c.name === assertion.tool);
+      return {
+        kind: assertion.kind,
+        label: assertion.tool,
+        pass: !called,
+        message: called
+          ? `tool "${assertion.tool}" was called but should not have been`
+          : `tool "${assertion.tool}" was correctly not called`,
       };
     }
     case "tool-args": {

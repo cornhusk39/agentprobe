@@ -34,6 +34,16 @@ describe("deterministic assertions", () => {
     expect(r!.message).toContain("never called");
   });
 
+  it("tool-not-called passes when the tool is absent and fails when it appears", () => {
+    // book_slot was called in the trace, cancel_booking was not.
+    const absent = evaluateAssertions(result, [{ kind: "tool-not-called", tool: "cancel_booking" }]);
+    expect(absent[0]!.pass).toBe(true);
+
+    const present = evaluateAssertions(result, [{ kind: "tool-not-called", tool: "book_slot" }]);
+    expect(present[0]!.pass).toBe(false);
+    expect(present[0]!.message).toContain("should not have been");
+  });
+
   it("fails tool-args when arguments diverge", () => {
     const [r] = evaluateAssertions(result, [
       { kind: "tool-args", tool: "book_slot", args: { slot: "wed-9am" }, match: "subset" },
