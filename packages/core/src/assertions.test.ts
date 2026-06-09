@@ -34,6 +34,22 @@ describe("deterministic assertions", () => {
     expect(r!.message).toContain("never called");
   });
 
+  it("tool-call-count enforces exactly / at-least / at-most", () => {
+    // book_slot is called once in the trace.
+    const atMostOk = evaluateAssertions(result, [{ kind: "tool-call-count", tool: "book_slot", op: "at-most", count: 2 }]);
+    expect(atMostOk[0]!.pass).toBe(true);
+
+    const atMostFail = evaluateAssertions(result, [{ kind: "tool-call-count", tool: "book_slot", op: "at-most", count: 0 }]);
+    expect(atMostFail[0]!.pass).toBe(false);
+    expect(atMostFail[0]!.observed).toBe(1);
+
+    const exactly = evaluateAssertions(result, [{ kind: "tool-call-count", tool: "book_slot", op: "exactly", count: 1 }]);
+    expect(exactly[0]!.pass).toBe(true);
+
+    const atLeast = evaluateAssertions(result, [{ kind: "tool-call-count", tool: "book_slot", op: "at-least", count: 2 }]);
+    expect(atLeast[0]!.pass).toBe(false);
+  });
+
   it("tool-not-called passes when the tool is absent and fails when it appears", () => {
     // book_slot was called in the trace, cancel_booking was not.
     const absent = evaluateAssertions(result, [{ kind: "tool-not-called", tool: "cancel_booking" }]);

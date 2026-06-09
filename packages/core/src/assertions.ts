@@ -21,6 +21,15 @@ export const assertionSchema = z.discriminatedUnion("kind", [
   // case can demand that an agent decline rather than act, and "did not book"
   // is something only this assertion can express directly.
   z.object({ kind: z.literal("tool-not-called"), tool: z.string() }),
+  // The named tool was called a bounded number of times. This is the guard
+  // against runaway tool use, the loop that calls the same tool ten times and
+  // quietly triples the cost, which a pass/fail check alone never catches.
+  z.object({
+    kind: z.literal("tool-call-count"),
+    tool: z.string(),
+    op: z.enum(["exactly", "at-least", "at-most"]).default("at-most"),
+    count: z.number().int().nonnegative(),
+  }),
   // A call to the named tool has arguments matching `args`. "subset" checks
   // that each given key matches; "exact" requires the whole arg object to match.
   z.object({
@@ -124,6 +133,20 @@ function evaluateOne(result: AgentRunResult, assertion: Assertion): AssertionRes
         message: called
           ? `tool "${assertion.tool}" was called but should not have been`
           : `tool "${assertion.tool}" was correctly not called`,
+      };
+    }
+    case "tool-call-count": {
+      const n = toolCalls(result.trace).filter((c) => c.name === assertion.tool).length;
+      const op = assertion.op ?? "at-most";
+      const pass =
+        op === "exactly" ? n === assertion.count : op === "at-least" ? n >= assertion.count : n <= assertion.count;
+      return {
+        kind: assertion.kind,
+        label: assertion.tool,
+        pass,
+        observed: n,
+        budget: assertion.count,
+        message: `tool "${assertion.tool}" called ${n} time(s), expected ${op} ${assertion.count}`,
       };
     }
     case "tool-args": {

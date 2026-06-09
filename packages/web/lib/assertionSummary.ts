@@ -9,6 +9,8 @@ export function assertionSummary(a: Assertion): string {
       return a.tool;
     case "tool-not-called":
       return `${a.tool} (must not be called)`;
+    case "tool-call-count":
+      return `${a.tool} called ${a.op ?? "at-most"} ${a.count}`;
     case "tool-args":
       return `${a.tool} args ${JSON.stringify(a.args)} (${a.match ?? "subset"})`;
     case "output-schema":
