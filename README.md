@@ -9,6 +9,10 @@ against a saved baseline.
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 
+<p align="center">
+  <img src="docs/screenshots/regression-catch.gif" alt="AgentProbe catching an agent regression in CI and recovering on revert" width="800">
+</p>
+
 ---
 
 ## The problem
@@ -105,6 +109,10 @@ the agent stopped doing its job.
 
 ## The dashboard
 
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="AgentProbe dashboard: trend charts for pass rate, judge score, cost and latency, a flaky-cases panel, and a runs table with regression highlights" width="900">
+</p>
+
 ```sh
 pnpm --filter @agentprobe/web seed:db   # seed a local database with run history
 pnpm --filter @agentprobe/web dev       # http://localhost:3000
@@ -124,6 +132,10 @@ uses:
   color-coded judge, cost, and latency deltas.
 - **Flaky cases** — surfaces cases whose pass/fail status has churned across the
   run history.
+
+| Run detail with the full trace | Compare two runs |
+| :---: | :---: |
+| <img src="docs/screenshots/run-detail.png" alt="Per-assertion pass/fail and the tool-call trace for a regressed run" width="420"> | <img src="docs/screenshots/compare.png" alt="Side-by-side diff of two runs with judge, cost, and latency deltas" width="420"> |
 
 ## Using it on your own agent
 
